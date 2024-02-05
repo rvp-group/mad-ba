@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>structure_refinement</name>
+  <version>0.0.0</version>
+  <description>The structure_refinement package</description>
+  <maintainer email="kcwian@todo.todo">kcwian</maintainer>
+  <license>TODO</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>srrg_cmake_modules</depend>
+  <depend>srrg2_core</depend>
+  <depend>srrg2_core_ros</depend>
+  <depend>srrg2_solver</depend>
+  <depend>srrg_hbst</depend>
+</package>
