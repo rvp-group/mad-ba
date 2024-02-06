@@ -32,7 +32,9 @@ namespace structure_refinement {
       std::cerr << "PointCloudProc::putMessage | no msg received" << std::endl;
       return false;
     }
-    std::cerr << "Cloud height: " << cloud->height.value() << " Cloud width: " << cloud->width.value() << std::endl;
+    static int cnt = 0;
+    cnt++;
+    std::cerr << "Cnt: " << cnt << " Cloud height: " << cloud->height.value() << " Cloud width: " << cloud->width.value() << std::endl;
     Point3fVectorCloud cloud2;
     cloud->getPointCloud(cloud2);
     // cloud->PointNormalIntensity3fVectorCloud();
@@ -62,7 +64,8 @@ namespace structure_refinement {
     }
     intensity_image.toCv(cv_intensity_image);
     cv::imshow("lidar_intensity", cv_intensity_image);
-    // cv::waitKey(1);
+    // ToDo - comment when using srgg2_shell and uncomment when running from app_point_cloud_proc 
+    cv::waitKey(1);
 
     return true;
   }

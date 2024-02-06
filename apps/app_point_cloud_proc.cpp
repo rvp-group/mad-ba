@@ -132,23 +132,24 @@ int main(int argc, char** argv) {
               << std::endl;
   }
 
- // retrieve the factor graph from the manager
-  // auto point_cloud_proc = manager.getByName<structure_refinement::PointCloudProc>("point_cloud_proc");
-  // if (!point_cloud_proc) {
-  //   std::cerr << std::string(environ[0]) +
-  //                  "|ERROR, cannot find point_cloud_proc, maybe wrong configuration path!"
-  //             << std::endl;
-  // }
+//  retrieve the factor graph from the manager
+  auto point_cloud_proc = manager.getByName<structure_refinement::PointCloudProc>("point_cloud_proc");
+  if (!point_cloud_proc) {
+    std::cerr << std::string(environ[0]) +
+                   "|ERROR, cannot find point_cloud_proc, maybe wrong configuration path!"
+              << std::endl;
+  }
 
   source->open(bag_file.value());
-  std::thread compute_thread(computeThread);
+  // std::thread compute_thread(computeThread);
+  runner->compute();
 
-  while (1){
-    // if input source if completed
-    if (sink->isFlushed()){
-      break;
-    }
-  }
+  // while (1){
+  //   // if input source if completed
+  //   if (sink->isFlushed()){
+  //     break;
+  //   }
+  // }
   //   // retrieve the factor graph from the manager
   // auto graph_manager = manager.getByName<md_slam::MDGraphManager>("graph_manager");
   // if (!graph_manager) {

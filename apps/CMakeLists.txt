@@ -26,6 +26,7 @@ target_link_libraries(app_point_cloud_proc
     srrg2_configurable_shell_library
     srrg2_config_library
     srrg2_data_structures_library
+    structure_refinement_library
     ${OpenCV_LIBS}
     ${QGLViewer_LIBRARIES}
     ${GLUT_LIBRARIES}
