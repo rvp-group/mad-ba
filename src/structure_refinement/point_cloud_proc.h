@@ -21,6 +21,8 @@
 
 #include <iostream>
 #include <vector>
+#include <ros/ros.h>
+#include <sensor_msgs/PointCloud2.h>
 
 namespace structure_refinement {
   using namespace srrg2_core;
@@ -31,18 +33,20 @@ namespace structure_refinement {
     PARAM(PropertyFloat, radius, "radius", 2.f, 0);
     PointCloudProc();
     virtual ~PointCloudProc();
-    bool putMessage(srrg2_core::BaseSensorMessagePtr msg) override;
+    bool putMessage(srrg2_core::BaseSensorMessagePtr msg) override; // Handle point cloud messages from the pipeline
+    bool createIntensityImage(srrg2_core::BaseSensorMessagePtr msg); // Just for tests
 
-  protected:
-    using PointUnprojectorBase =
-      srrg2_core::PointUnprojectorBase_<srrg2_core::PointNormalIntensity3fVectorCloud>;
-    using PointUnprojectorPinhole =
-      srrg2_core::PointUnprojectorPinhole_<srrg2_core::PointNormalIntensity3fVectorCloud>;
-    using PointUnprojectorPolar =
-      srrg2_core::PointUnprojectorPolar_<srrg2_core::PointNormalIntensity3fVectorCloud>;
+   protected:
+    using PointUnprojectorBase = srrg2_core::PointUnprojectorBase_<srrg2_core::PointNormalIntensity3fVectorCloud>;
+    using PointUnprojectorPinhole = srrg2_core::PointUnprojectorPinhole_<srrg2_core::PointNormalIntensity3fVectorCloud>;
+    using PointUnprojectorPolar = srrg2_core::PointUnprojectorPolar_<srrg2_core::PointNormalIntensity3fVectorCloud>;
 
     std::unique_ptr<PointUnprojectorBase> _unprojector;
     size_t _seq = 0;
+
+    // ROS
+    ros::NodeHandle nh_;
+    ros::Publisher pointCloudPub_;
   };
 
   using PointCloudProcPtr = std::shared_ptr<PointCloudProc>;

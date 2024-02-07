@@ -10,22 +10,40 @@
 #include <srrg_system_utils/shell_colors.h>
 #include <srrg_pcl/point_normal_curvature.h>
 #include <srrg_pcl/instances.h>
+#include <srrg_converters/converter.h>
 
 namespace structure_refinement {
   using namespace srrg2_core;
-
+  using namespace srrg2_core_ros;
   using LidarProjectorType   = PointIntensity3fProjectorOS1_64;
   using LidarUnprojectorType = PointIntensity3fUnprojectorOS1_64;
   using NormalComputatorType = NormalComputator2DCrossProduct<PointNormal3fVectorCloud,0>; //NormalComputator2DCrossProduct<PointNormal3fMatrixCloud, 1>;
 
-  PointCloudProc::PointCloudProc() {
+  PointCloudProc::PointCloudProc(): nh_("~") {
+            pointCloudPub_ = nh_.advertise<sensor_msgs::PointCloud2>("raw_point_cloud", 1000);
   }
 
-  PointCloudProc::~PointCloudProc() {
+  PointCloudProc::~PointCloudProc()  {
   }
 
-  bool PointCloudProc::putMessage(srrg2_core::BaseSensorMessagePtr msg_) {
-    PointCloud2MessagePtr cloud = std::dynamic_pointer_cast<PointCloud2Message>(msg_);
+  bool PointCloudProc::putMessage(srrg2_core::BaseSensorMessagePtr msg) {
+      PointCloud2MessagePtr cloud = std::dynamic_pointer_cast<PointCloud2Message>(msg);
+      if (!cloud) {
+          std::cerr << "PointCloudProc::putMessage | no msg received" << std::endl;
+          return false;
+      }
+      static int cnt = 0;
+      std::cout << std::setprecision(12) << "Cnt: " << ++cnt << " TS: " << cloud->timestamp.value()
+                << " Cloud height: " << cloud->height.value() << " Cloud width: " << cloud->width.value() << std::endl;
+
+      sensor_msgs::PointCloud2ConstPtr ros_msg = Converter::convert(cloud);
+      // sensor_msgs::PointCloud2MessagePtr pclptr;
+      pointCloudPub_.publish(*ros_msg);
+      return true;
+  }
+
+  bool PointCloudProc::createIntensityImage(srrg2_core::BaseSensorMessagePtr msg) {
+    PointCloud2MessagePtr cloud = std::dynamic_pointer_cast<PointCloud2Message>(msg);
     if (!cloud) {
       std::cerr << "PointCloudProc::putMessage | no msg received" << std::endl;
       return false;

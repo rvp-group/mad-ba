@@ -73,7 +73,7 @@ int main(int argc, char** argv) {
     }
 
     // source->open(source.value());
-    // runner->compute();
+    runner->compute();
 
     manager.erase(runner);
     manager.erase(source);
