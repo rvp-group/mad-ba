@@ -1,6 +1,7 @@
 add_library(structure_refinement_library SHARED
   point_cloud_proc.cpp
-  instances.cpp 
+  surfel.cpp
+  instances.cpp
 )
 
 target_link_libraries(structure_refinement_library
