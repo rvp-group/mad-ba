@@ -24,8 +24,6 @@ namespace structure_refinement {
   PointCloudProc::~PointCloudProc() {
   }
 
-  
-
   bool PointCloudProc::putMessage(srrg2_core::BaseSensorMessagePtr msg_) {
     PointCloud2MessagePtr cloud = std::dynamic_pointer_cast<PointCloud2Message>(msg_);
     if (!cloud) {
@@ -35,7 +33,7 @@ namespace structure_refinement {
     static int cnt = 0;
     cnt++;
     std::cerr << "Cnt: " << cnt << " Cloud height: " << cloud->height.value() << " Cloud width: " << cloud->width.value() << std::endl;
-    Point3fVectorCloud cloud2;
+    PointIntensity3fVectorCloud cloud2;
     cloud->getPointCloud(cloud2);
     // cloud->PointNormalIntensity3fVectorCloud();
 
@@ -63,61 +61,13 @@ namespace structure_refinement {
       *intensity_image_it = it->source_it->intensity();
     }
     intensity_image.toCv(cv_intensity_image);
+    cv_intensity_image = cv_intensity_image / 255.0;
+
     cv::imshow("lidar_intensity", cv_intensity_image);
     // ToDo - comment when using srgg2_shell and uncomment when running from app_point_cloud_proc 
     cv::waitKey(1);
 
     return true;
   }
-
-//   void getLidarData(LidarProjectorType& projector_,
-//                const PointCloud2MessagePtr& lidar_msg_,
-//                const std::string& directory_,
-//                const bool dump_depth_) {
-//   LidarProjectorType::Lidar3DSensorType lidar_sensor;
-//   // ia projected point cloud (within a special data structure containing auxliary fields also)
-//   LidarProjectorType::TargetMatrixType projection_target_matrix;
-//   // ia intensity and depth image from the projected cloud
-//   srrg2_core::ImageFloat intensity_image;
-//   srrg2_core::ImageFloat depth_image;
-
-//   // ia extract a usable pointcloud from the raw message
-//   PointIntensity3fVectorCloud current_cloud;
-//   lidar_msg_->getPointCloud(current_cloud);
-
-//   float max_intensity = -1.f;
-//   for (const auto& p : current_cloud) {
-//     if (p.intensity() > max_intensity) {
-//       max_intensity = p.intensity();
-//     }
-//   }
-
-//   // ia project the cloud
-//   projector_.compute(projection_target_matrix, current_cloud.begin(), current_cloud.end());
-
-//   // ia get the intensity image
-//   intensity_image.resize(lidar_sensor.verticalResolution(), projector_.param_num_columns.value());
-//   auto intensity_image_it = intensity_image.begin();
-//   for (auto it = projection_target_matrix.begin(); it != projection_target_matrix.end();
-//        ++it, ++intensity_image_it) {
-//     *intensity_image_it = it->source_it->intensity();
-//   }
-
-//   // ia get the depth image
-//   projection_target_matrix.toDepthMatrix(depth_image);
-
-//   // ia use opencv to show something
-//   intensity_image.toCv(cv_intensity_image);
-//   depth_image.toCv(cv_depth_image);
-
-//   // ia save the intensity image in the output directory
-//   cv::imwrite(directory_ + "/intensity_" + std::to_string(msg_number) + ".png", cv_intensity_image);
-//   if (dump_depth_) {
-//     cv::imwrite(directory_ + "/depth_" + std::to_string(msg_number) + ".png", cv_depth_image);
-//   }
-
-//   cv_depth_image     = cv_depth_image / projector_.param_range_max.value();
-//   cv_intensity_image = cv_intensity_image / max_intensity;
-// }
 
 } // namespace structure_refinement
