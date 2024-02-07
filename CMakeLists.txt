@@ -5,6 +5,10 @@ project(structure_refinement)
 # add_compile_options(-std=c++11)
 
 find_package(catkin REQUIRED COMPONENTS
+  nav_msgs
+  roscpp
+  rospy
+  sensor_msgs
   srrg_cmake_modules
   srrg_hbst
   srrg2_core
@@ -24,11 +28,8 @@ find_package(OpenCV REQUIRED)
 message(STATUS "${PROJECT_NAME}: OpenCV version ${OpenCV_VERSION}")
 message(STATUS "OpenCV_INCLUDE_DIRS: ${OpenCV_INCLUDE_DIRS}")
 
-# hbst stuff
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSRRG_MERGE_DESCRIPTORS -DSRRG_HBST_HAS_OPENCV")
 
-# optional
-# PCL only required read or dump data in universal way
 find_package(PCL REQUIRED)
 if(PCL_FOUND)
 message("PCL FOUND: building apps to dump point clouds in pcd format")
