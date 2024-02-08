@@ -7,7 +7,6 @@
 #include <srrg_pcl/point_cloud.h>
 #include <srrg_pcl/point_projector.h>
 #include <srrg_pcl/point_unprojector.h>
-#include <srrg_system_utils/shell_colors.h>
 #include <srrg_pcl/point_normal_curvature.h>
 #include <srrg_pcl/instances.h>
 #include <srrg_messages_ros/instances.h>
@@ -16,7 +15,6 @@
 #include <unistd.h>
 #include <srrg_config/configurable_manager.h>
 #include <srrg_system_utils/parse_command_line.h>
-#include <srrg_system_utils/shell_colors.h>
 #include <srrg_system_utils/system_utils.h>
 #include <srrg_config/pipeline_runner.h>
 #include <bits/stdc++.h>
@@ -25,7 +23,6 @@
 #include <unistd.h>
 
 #include <srrg_image/image.h>
-#include <srrg_system_utils/shell_colors.h>
 #include <srrg_system_utils/system_utils.h>
 
 #include <iostream>

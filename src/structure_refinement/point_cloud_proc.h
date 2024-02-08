@@ -23,6 +23,8 @@
 #include <vector>
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
+#include <rviz_visual_tools/rviz_visual_tools.h>
+
 
 namespace structure_refinement {
   using namespace srrg2_core;
@@ -35,6 +37,7 @@ namespace structure_refinement {
     virtual ~PointCloudProc();
     bool putMessage(srrg2_core::BaseSensorMessagePtr msg) override; // Handle point cloud messages from the pipeline
     bool createIntensityImage(srrg2_core::BaseSensorMessagePtr msg); // Just for tests
+    void publishNormals();
 
    protected:
     using PointUnprojectorBase = srrg2_core::PointUnprojectorBase_<srrg2_core::PointNormalIntensity3fVectorCloud>;
@@ -47,6 +50,9 @@ namespace structure_refinement {
     // ROS
     ros::NodeHandle nh_;
     ros::Publisher pointCloudPub_;
+
+    // Rviz Visualization Tools
+    rviz_visual_tools::RvizVisualToolsPtr visual_tools_;
   };
 
   using PointCloudProcPtr = std::shared_ptr<PointCloudProc>;

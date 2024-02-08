@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   srrg2_core
   srrg2_core_ros
   srrg2_solver
+  rviz_visual_tools
 )
 
 include(${srrg_cmake_modules_INCLUDE_DIRS}/CMakeCompileOptions.txt)
@@ -39,13 +40,14 @@ catkin_package(
   INCLUDE_DIRS
     src
   LIBRARIES
-    md_slam
+    structure_refinement
   CATKIN_DEPENDS
     srrg_cmake_modules
     srrg_hbst
     srrg2_core
     srrg2_core_ros
     srrg2_solver
+    rviz_visual_tools
   DEPENDS
     SRRG_QT
     OpenCV

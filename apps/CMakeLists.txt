@@ -37,6 +37,7 @@ target_link_libraries(main_app
     srrg2_viewer_library 
     srrg2_configurable_shell_library
     structure_refinement_library
+    librviz_visual_tools.so
     ${OpenCV_LIBS}
     ${QGLViewer_LIBRARIES}
     ${GLUT_LIBRARIES}
