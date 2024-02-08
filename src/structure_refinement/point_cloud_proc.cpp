@@ -11,6 +11,13 @@
 #include <srrg_pcl/point_normal_curvature.h>
 #include <srrg_pcl/instances.h>
 #include <srrg_converters/converter.h>
+#include "kdtree.hpp"
+#include <tf2_ros/static_transform_broadcaster.h>
+#include <geometry_msgs/TransformStamped.h>
+#include <tf2_ros/static_transform_broadcaster.h>
+#include <geometry_msgs/TransformStamped.h>
+#include <cstdio>
+#include <tf2/LinearMath/Quaternion.h>
 
 namespace structure_refinement {
   using namespace srrg2_core;
@@ -29,6 +36,16 @@ namespace structure_refinement {
       visual_tools_->loadMarkerPub();
       visual_tools_->deleteAllMarkers();
       visual_tools_->enableBatchPublishing();
+
+      // Publish some tf for Rviz visualization
+      static tf2_ros::StaticTransformBroadcaster staticBrd;
+      geometry_msgs::TransformStamped static_transformStamped;
+      static_transformStamped.header.stamp = ros::Time::now();
+      static_transformStamped.header.frame_id = "world";
+      static_transformStamped.child_frame_id = "map";
+      static_transformStamped.transform.rotation.w = 1.0;
+      staticBrd.sendTransform(static_transformStamped);
+  
   }
 
   PointCloudProc::~PointCloudProc()  {
@@ -46,8 +63,31 @@ namespace structure_refinement {
       visual_tools_->trigger();
   }
 
-  bool PointCloudProc::putMessage(srrg2_core::BaseSensorMessagePtr msg) {
+  void PointCloudProc::createKDTree(std::shared_ptr<std::vector<Eigen::Vector3d>> curr_cloud) {
 
+      // using ContainerType = std::vector<Eigen::Vector3d>;
+      // using ContainerTypePtr = std::shared_ptr<ContainerType>;
+      // using TreeNodeType = TreeNode3D<ContainerType>;
+      // using TreeNodeTypePtr = TreeNodeType*;
+
+      // TreeNodeTypePtr current_tree_ = new TreeNodeType(curr_cloud,
+      //                                  curr_cloud->begin(),
+      //                                  curr_cloud->end(),
+      //                                  0.2,
+      //                                  0.1,
+      //                                  0,
+      //                                  2,
+      //                                  nullptr,
+      //                                  nullptr);
+
+      // std::vector<TreeNodeTypePtr> vect;
+      // std::back_insert_iterator<std::vector<TreeNodeTypePtr>> it(vect);
+      // // std::back_insert_iterator<std::vector<TreeNode3D*>> it;
+      // current_tree_->getLeafs(it);
+      // std::cout << "Vector size " << vect.size() << std::endl;
+  } 
+
+  bool PointCloudProc::putMessage(srrg2_core::BaseSensorMessagePtr msg) {
 
       // Convert message to srrg2 point cloud
       PointCloud2MessagePtr cloud = std::dynamic_pointer_cast<PointCloud2Message>(msg);
@@ -55,9 +95,11 @@ namespace structure_refinement {
           std::cerr << "PointCloudProc::putMessage | no msg received" << std::endl;
           return false;
       }
-      
+
       // Print the general info for debugging
       static int cnt = 0;
+      if (cnt >= 1)
+          exit(0);
       std::cout << std::setprecision(12) << "Cnt: " << ++cnt << " TS: " << cloud->timestamp.value()
                 << " Cloud height: " << cloud->height.value() << " Cloud width: " << cloud->width.value() << std::endl;
 
@@ -65,13 +107,77 @@ namespace structure_refinement {
       // Change the frame_id of the point cloud
       cloud->frame_id.value() = "map";
       // Convert srrg2 to sensor_msgs point cloud
-      sensor_msgs::PointCloud2ConstPtr ros_msg = Converter::convert(cloud);
+      sensor_msgs::PointCloud2ConstPtr rosMsg = Converter::convert(cloud);
 
-      // Publish the ROS message
-      pointCloudPub_.publish(*ros_msg);
-      publishNormals();
+      // Publish the raw cloud as ROS message
+      pointCloudPub_.publish(*rosMsg);
+
+      // Create Point3f point cloud
+      Point3fVectorCloud cloudPoint3f;
+      cloud->getPointCloud(cloudPoint3f);
+      
+      // Conver point cloud to the std::vector<Eigen::Vector3d
+      std::vector<Eigen::Vector3d> pointCloudEigen;
+      // TODO: optimize
+      // For now copy all point from Point3f point cloud to std::vector<Eigen::Vector3d>
+      for (const Point3f& p : cloudPoint3f) {
+          Eigen::Vector3d pe(p.coordinates().cast<double>());
+          pointCloudEigen.push_back(pe);
+      }
+      // For each point cloud create an KDTree
+      
+      using ContainerType = std::vector<Eigen::Vector3d>;
+      // using ContainerTypePtr = std::shared_ptr<ContainerType>;
+      using TreeNodeType = TreeNode3D<ContainerType>;
+      using TreeNodeTypePtr = TreeNodeType*;
+
+      TreeNodeTypePtr current_tree_ = new TreeNodeType(std::make_shared<ContainerType>(pointCloudEigen),
+                                       pointCloudEigen.begin(),
+                                       pointCloudEigen.end(),
+                                       0.2,
+                                       0.1,
+                                       0,
+                                       2,
+                                       nullptr,
+                                       nullptr);
+
+      std::vector<TreeNodeTypePtr> vect;
+      std::back_insert_iterator<std::vector<TreeNodeTypePtr>> it(vect);
+      // std::back_insert_iterator<std::vector<TreeNode3D*>> it;
+      current_tree_->getLeafs(it);
+      std::cout << "Vector size " << vect.size() << std::endl;
+      Eigen::Isometry3d pose = Eigen::Isometry3d::Identity();
+      for (auto& el : vect) {
+          // std::cout << el->eigenvectors_.col(0) << std::endl;
+          pose.translation() = Eigen::Vector3d(el->mean_);  // translate x,y,z
+          Eigen::Matrix3d rotMatrix = calculateMatrixBetween2Vectors(Eigen::Vector3d(1,0,0),el->eigenvectors_.col(0));
+          pose.linear() = rotMatrix;
+          visual_tools_->publishArrow(pose, rviz_visual_tools::C_RED, rviz_visual_tools::LARGE);
+      }
+      visual_tools_->trigger();
+
+      // createKDTree(cloud_vect);
+      // publishNormals();
 
       return true;
+  }
+
+  Eigen::Matrix3d PointCloudProc::calculateMatrixBetween2Vectors(Eigen::Vector3d a, Eigen::Vector3d b) {
+    
+      a = a / a.norm();
+      b = b / b.norm();
+      Eigen::Vector3d v = a.cross(b);
+      float s = v.norm();
+      float c = a.dot(b);
+      Eigen::Matrix3d vx;
+      vx << 0, -v[2], v[1], v[2], 0, -v[0], -v[1], v[0], 0;
+      Eigen::Matrix3d r = Eigen::Matrix3d::Identity(3, 3);
+      if (s != 0) {
+          r = r + vx + vx * vx * ((1 - c) / std::pow(s, 2));
+      } else {
+          std::cout << "doesn't work if a == -b" << std::endl;
+      }
+      return r;
   }
 
   bool PointCloudProc::createIntensityImage(srrg2_core::BaseSensorMessagePtr msg) {

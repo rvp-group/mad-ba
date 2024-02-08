@@ -38,6 +38,8 @@ namespace structure_refinement {
     bool putMessage(srrg2_core::BaseSensorMessagePtr msg) override; // Handle point cloud messages from the pipeline
     bool createIntensityImage(srrg2_core::BaseSensorMessagePtr msg); // Just for tests
     void publishNormals();
+    void createKDTree(std::shared_ptr<std::vector<Eigen::Vector3d>>);
+    Eigen::Matrix3d calculateMatrixBetween2Vectors(Eigen::Vector3d a, Eigen::Vector3d b);
 
    protected:
     using PointUnprojectorBase = srrg2_core::PointUnprojectorBase_<srrg2_core::PointNormalIntensity3fVectorCloud>;
@@ -46,6 +48,9 @@ namespace structure_refinement {
 
     std::unique_ptr<PointUnprojectorBase> _unprojector;
     size_t _seq = 0;
+
+    // Point clouds
+    std::vector<std::vector<Eigen::Vector3d>> eigen_vect;
 
     // ROS
     ros::NodeHandle nh_;
