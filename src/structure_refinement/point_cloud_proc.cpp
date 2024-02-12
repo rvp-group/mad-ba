@@ -100,6 +100,13 @@ namespace structure_refinement {
       // Just republish the message to ROS
       nav_msgs::OdometryConstPtr rosMsgPtr = Converter::convert(odom);
       odomPub_.publish(*rosMsgPtr);
+      // Save the pose in a vector
+      Eigen::Vector3d trans(rosMsgPtr->pose.pose.position.x, rosMsgPtr->pose.pose.position.y, rosMsgPtr->pose.pose.position.z);
+      Eigen::Quaterniond quat(rosMsgPtr->pose.pose.orientation.w, rosMsgPtr->pose.pose.orientation.x, rosMsgPtr->pose.pose.orientation.y, rosMsgPtr->pose.pose.orientation.z);
+      Eigen::Isometry3d pose = Eigen::Isometry3d::Identity();
+      pose.translation() = trans;
+      pose.linear() = quat.toRotationMatrix();
+      poses_.push_back(pose);
   }
 
   void PointCloudProc::handleCloudMessage(PointCloud2MessagePtr cloud) {

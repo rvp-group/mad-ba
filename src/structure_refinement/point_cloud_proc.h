@@ -65,7 +65,7 @@ namespace structure_refinement {
     using TreeNodeTypePtr = TreeNodeType *;
     std::vector<std::vector<TreeNodeTypePtr>> kdTreeLeafes_;  // Leafes from the subsequential kd-trees - Index corresponds to pose index
     std::vector<std::shared_ptr<TreeNodeType>> kdTrees_;      // Kd-trees created from subsequential point clouds - Index corresponds to pose index | Probably I don't need them
-    // std::vector<Point3fVectorCloud> poses;
+    std::vector<Eigen::Isometry3d> poses_;
 
     // ROS
     ros::NodeHandle nh_;
