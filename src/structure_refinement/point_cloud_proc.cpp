@@ -30,6 +30,7 @@ namespace structure_refinement {
 
       // ROS publishers
       pointCloudPub_ = nh_.advertise<sensor_msgs::PointCloud2>("raw_point_cloud", 1000);
+      odomPub_ = nh_.advertise<nav_msgs::Odometry>("ba_estimate", 1000);
 
       // Initalize rviz visual tools
       visual_tools_.reset(new rviz_visual_tools::RvizVisualTools("map", "rviz_visual_markers"));
@@ -52,10 +53,9 @@ namespace structure_refinement {
   }
 
   bool PointCloudProc::putMessage(srrg2_core::BaseSensorMessagePtr msg) {
-      
-      // Process only n-th first clouds
+      // Process only n-th first clouds - RAM memory is a limit
       static int msgCnt = -1;
-      if (++msgCnt >= 3000)
+      if (++msgCnt >= 3 * 500)
           exit(0);
 
       // Let's assume that for each point cloud in a .bag file there is one odometry pose
@@ -70,26 +70,37 @@ namespace structure_refinement {
           static int odomMsgCnt = 0;
           std::cout << std::setprecision(12) << "Odometry message no." << odomMsgCnt++ << " Ts: " << odom->timestamp.value() << std::endl;
           handleOdometryMessage(odom);
+      // Try to convert the message to srrg2 odometry
+      } else if (TransformEventsMessagePtr tfMsg = std::dynamic_pointer_cast<TransformEventsMessage>(msg)) {
+          static int tfMsgCnt = 0;
+          std::cout << std::setprecision(12) << "Transform message no." << tfMsgCnt++ << " Ts: " << tfMsg->timestamp.value() << std::endl;
+          handleTFMessage(tfMsg);
+      // Other messages types
       } else {
-          std::cerr << "PointCloudProc::putMessage | no msg received" << std::endl;
+          std::cerr << "PointCloudProc::putMessage | no handler for the received message type " << std::endl;
           return false;
       }
 
       return true;
   }
 
-  void PointCloudProc::handleOdometryMessage(OdometryMessagePtr odom)
-  {
-    // std::cout << "Odom message TODO" << std::endl;
-    nav_msgs::OdometryConstPtr rosMsgPtr = Converter::convert(odom);
-    static ros::Publisher odomPub_ = nh_.advertise<nav_msgs::Odometry>("ba_estimate", 1000);
-    odomPub_.publish(*rosMsgPtr);
+  void PointCloudProc::handleTFMessage(TransformEventsMessagePtr tfMsg) {
+      // Just republish the message to ROS
+      tf2_msgs::TFMessageConstPtr tfMsgPtr = Converter::convert(tfMsg);
+      for (geometry_msgs::TransformStamped tfStamped : (*tfMsgPtr).transforms) {
+          transformBroadcaster_.sendTransform(tfStamped);
+      }
   }
 
-  void PointCloudProc::handleCloudMessage(PointCloud2MessagePtr cloud){
-    
+  void PointCloudProc::handleOdometryMessage(OdometryMessagePtr odom) {
+      // Just republish the message to ROS
+      nav_msgs::OdometryConstPtr rosMsgPtr = Converter::convert(odom);
+      odomPub_.publish(*rosMsgPtr);
+  }
+
+  void PointCloudProc::handleCloudMessage(PointCloud2MessagePtr cloud) {
       // Change the frame_id of the point cloud
-      cloud->frame_id.value() = "map";
+      cloud->frame_id.value() = "ba_estimate";
       // Convert srrg2 to sensor_msgs point cloud
       sensor_msgs::PointCloud2ConstPtr rosMsg = Converter::convert(cloud);
 

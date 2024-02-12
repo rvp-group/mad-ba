@@ -18,9 +18,9 @@
 #include <srrg_viewer/active_drawable.h>
 #include <srrg_messages/messages/point_cloud2_message.h>
 #include <srrg_messages/messages/odometry_message.h>
+#include <srrg_messages/messages/transform_events_message.h>
 #include <nav_msgs/Odometry.h>
-
-
+#include <tf2_ros/transform_broadcaster.h>
 #include <iostream>
 #include <vector>
 #include <ros/ros.h>
@@ -43,6 +43,7 @@ namespace structure_refinement {
     bool putMessage(srrg2_core::BaseSensorMessagePtr msg) override;   // Handle messages from the srrg pipeline
     void handleCloudMessage(PointCloud2MessagePtr);                   // Handle the point cloud message
     void handleOdometryMessage(OdometryMessagePtr);                   // Handle the odometry pose message
+    void handleTFMessage(TransformEventsMessagePtr);                   // Handle the tf message
     bool createIntensityImage(srrg2_core::BaseSensorMessagePtr msg);  // Just for tests
     void publishNormals(int);                                         // Publish normals for n-th set of point cloud / pose
     void createKDTree(std::vector<Eigen::Vector3d> &cloud);           // Creates kd-trees from the vector of points
@@ -69,7 +70,9 @@ namespace structure_refinement {
 
     // ROS
     ros::NodeHandle nh_;
-    ros::Publisher pointCloudPub_;
+    ros::Publisher pointCloudPub_; // Raw point clouds publisher
+    ros::Publisher odomPub_; // Odometry from .bag file publisher
+    tf2_ros::TransformBroadcaster transformBroadcaster_;
 
     // Rviz Visualization Tools
     rviz_visual_tools::RvizVisualToolsPtr visual_tools_;
