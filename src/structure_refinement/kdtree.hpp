@@ -10,7 +10,7 @@
 using namespace std;
 
 template <typename ContainerType_>
-inline TreeNode3D<ContainerType_>::TreeNode3D(const ContainerTypePtr vec,
+inline TreeNode3D<ContainerType_>::TreeNode3D(
                                        const IteratorType begin,
                                        const IteratorType end,
                                        const double bbox_threshold,
@@ -19,7 +19,7 @@ inline TreeNode3D<ContainerType_>::TreeNode3D(const ContainerTypePtr vec,
                                        const int max_parallel_level,
                                        TreeNode3D* parent,
                                        TreeNode3D* plane_predecessor) {
-  build(vec,
+  build(
         begin,
         end,
         bbox_threshold,
@@ -31,7 +31,7 @@ inline TreeNode3D<ContainerType_>::TreeNode3D(const ContainerTypePtr vec,
 }
 
 template <typename ContainerType_>
-inline void TreeNode3D<ContainerType_>::build(const ContainerTypePtr vec,
+inline void TreeNode3D<ContainerType_>::build(
                                        const IteratorType begin,
                                        const IteratorType end,
                                        const double bbox_threshold,
@@ -87,7 +87,7 @@ inline void TreeNode3D<ContainerType_>::build(const ContainerTypePtr vec,
   });
 
   if (level >= max_parallel_level) {
-    left_ = new TreeNode3D(vec,
+    left_ = new TreeNode3D(
                            begin,
                            middle,
                            bbox_threshold,
@@ -97,7 +97,7 @@ inline void TreeNode3D<ContainerType_>::build(const ContainerTypePtr vec,
                            this,
                            plane_predecessor);
 
-    right_ = new TreeNode3D(vec,
+    right_ = new TreeNode3D(
                             middle,
                             end,
                             bbox_threshold,
@@ -108,7 +108,7 @@ inline void TreeNode3D<ContainerType_>::build(const ContainerTypePtr vec,
                             plane_predecessor);
   } else {
     std::future<ThisType*> l = std::async(ThisType::makeSubtree,
-                                          vec,
+                                         
                                           begin,
                                           middle,
                                           bbox_threshold,
@@ -119,7 +119,7 @@ inline void TreeNode3D<ContainerType_>::build(const ContainerTypePtr vec,
                                           plane_predecessor);
 
     std::future<ThisType*> r = std::async(ThisType::makeSubtree,
-                                          vec,
+                                        
                                           middle,
                                           end,
                                           bbox_threshold,
@@ -135,7 +135,7 @@ inline void TreeNode3D<ContainerType_>::build(const ContainerTypePtr vec,
 }
 
 template <typename ContainerType_>
-inline TreeNode3D<ContainerType_>* TreeNode3D<ContainerType_>::makeSubtree(const ContainerTypePtr vec,
+inline TreeNode3D<ContainerType_>* TreeNode3D<ContainerType_>::makeSubtree(
                                                                     const IteratorType begin,
                                                                     const IteratorType end,
                                                                     const double bbox_threshold,
@@ -144,7 +144,7 @@ inline TreeNode3D<ContainerType_>* TreeNode3D<ContainerType_>::makeSubtree(const
                                                                     const int max_parallel_level,
                                                                     TreeNode3D* parent,
                                                                     TreeNode3D* plane_predecessor) {
-  return new TreeNode3D(vec,
+  return new TreeNode3D(
                         begin,
                         end,
                         bbox_threshold,

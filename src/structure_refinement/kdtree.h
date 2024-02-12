@@ -19,7 +19,7 @@ public:
   using PtrType          = TreeNode3D*;
   using ThisType         = TreeNode3D<ContainerType>;
 
-  inline TreeNode3D(const ContainerTypePtr vec,
+  inline TreeNode3D(
              const IteratorType begin,
              const IteratorType end,
              const double bbox_threshold,
@@ -40,7 +40,7 @@ public:
 
   inline TreeNode3D* bestMatchingLeafFast(const Eigen::Vector3d& query);
   
-  inline void build(const ContainerTypePtr vec,
+  inline void build(
              const IteratorType begin,
              const IteratorType end,
              const double bbox_threshold,
@@ -50,7 +50,7 @@ public:
              TreeNode3D* parent,
              TreeNode3D* plane_predecessor);
 
-  static inline ThisType* makeSubtree(const ContainerTypePtr vec,
+  static inline ThisType* makeSubtree(
                                const IteratorType begin,
                                const IteratorType end,
                                const double bbox_threshold,

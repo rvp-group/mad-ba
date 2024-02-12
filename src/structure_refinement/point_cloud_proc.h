@@ -24,10 +24,13 @@
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <rviz_visual_tools/rviz_visual_tools.h>
-
+#include "kdtree.hpp"
 
 namespace structure_refinement {
   using namespace srrg2_core;
+    using ContainerType = std::vector<Eigen::Vector3d>;
+      using TreeNodeType = TreeNode3D<ContainerType>;
+      using TreeNodeTypePtr = TreeNodeType*;
 
   class PointCloudProc : public srrg2_core::MessageSinkBase, public srrg2_core::ActiveDrawable {
   public:
@@ -35,10 +38,10 @@ namespace structure_refinement {
     PARAM(PropertyFloat, radius, "radius", 2.f, 0);
     PointCloudProc();
     virtual ~PointCloudProc();
-    bool putMessage(srrg2_core::BaseSensorMessagePtr msg) override; // Handle point cloud messages from the pipeline
-    bool createIntensityImage(srrg2_core::BaseSensorMessagePtr msg); // Just for tests
-    void publishNormals();
-    void createKDTree(std::shared_ptr<std::vector<Eigen::Vector3d>>);
+    bool putMessage(srrg2_core::BaseSensorMessagePtr msg) override;   // Handle point cloud messages from the pipeline
+    bool createIntensityImage(srrg2_core::BaseSensorMessagePtr msg);  // Just for tests
+    void publishNormals(int);                                         // Publish normals for n-th set of point cloud / pose
+    void createKDTree(std::vector<Eigen::Vector3d> &cloud);           // Creates kd-trees from the vector of points
     Eigen::Matrix3d calculateMatrixBetween2Vectors(Eigen::Vector3d a, Eigen::Vector3d b);
 
    protected:
@@ -50,7 +53,15 @@ namespace structure_refinement {
     size_t _seq = 0;
 
     // Point clouds
-    std::vector<std::vector<Eigen::Vector3d>> eigen_vect;
+    std::vector<std::shared_ptr<Point3fVectorCloud>> pointClouds_;  // Subsequiential point clouds
+
+    using ContainerType = std::vector<Eigen::Vector3d>;
+    using TreeNodeType = TreeNode3D<ContainerType>;
+    using TreeNodeTypePtr = TreeNodeType *;
+    std::vector<std::vector<TreeNodeTypePtr>> kdTreeLeafes_;  // Leafes from the subsequential kd-trees
+    std::vector<std::shared_ptr<TreeNodeType>> kdTrees_;      // Kd-trees created from subsequential point clouds - probably I don't need them
+
+    // std::vector<Point3fVectorCloud> poses;
 
     // ROS
     ros::NodeHandle nh_;
