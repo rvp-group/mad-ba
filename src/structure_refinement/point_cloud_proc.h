@@ -46,7 +46,7 @@ namespace structure_refinement {
     void handleTFMessage(TransformEventsMessagePtr);                   // Handle the tf message
     bool createIntensityImage(srrg2_core::BaseSensorMessagePtr msg);  // Just for tests
     void publishNormals(int);                                         // Publish normals for n-th set of point cloud / pose
-    void createKDTree(std::vector<Eigen::Vector3d> &cloud);           // Creates kd-trees from the vector of points
+    void createKDTree(std::vector<Eigen::Vector3d> &cloud, const Eigen::Isometry3d &lastPose);  // Creates kd-trees from the vector of points
     Eigen::Matrix3d calculateMatrixBetween2Vectors(Eigen::Vector3d a, Eigen::Vector3d b);
 
    protected:

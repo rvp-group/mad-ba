@@ -109,36 +109,64 @@ namespace structure_refinement {
       poses_.push_back(pose);
   }
 
-  void PointCloudProc::handleCloudMessage(PointCloud2MessagePtr cloud) {
-      // Change the frame_id of the point cloud
-      cloud->frame_id.value() = "ba_estimate";
-      // Convert srrg2 to sensor_msgs point cloud
-      sensor_msgs::PointCloud2ConstPtr rosMsg = Converter::convert(cloud);
+  void PointCloudProc::handleCloudMessage(PointCloud2MessagePtr cloudMsg) {
 
-      // Publish the raw cloud as ROS message
-      pointCloudPub_.publish(*rosMsg);
+      // Create buffer for messages
+      static std::vector<PointCloud2MessagePtr> cloudBuffer;
+      // Add item to a buffer
+      cloudBuffer.push_back(std::shared_ptr(cloudMsg)); 
+      
+      // Try to empty the buffer
+      for (unsigned int i = 0; i < cloudBuffer.size(); i++) {
 
-      // Create Point3f Point Cloud from srrg2 point cloud
-      std::shared_ptr<Point3fVectorCloud> pointCloudPoint3f(new Point3fVectorCloud());      
-      cloud->getPointCloud(*pointCloudPoint3f);
+          // Check if there is already pose for that cloud
+          // Get the index that this cloud will have
+          int idx_cloud = pointClouds_.size();
+          int idx_pose = poses_.size() - 1;
 
-      // TODO: optimize
-      // Conver point cloud to the std::vector<Eigen::Vector3d
-      std::vector<Eigen::Vector3d> pointCloudEigen;
-      // For now copy all the points from Point3f point cloud to std::vector<Eigen::Vector3d>
-      for (const Point3f& p : *pointCloudPoint3f) {
-          Eigen::Vector3d pe(p.coordinates().cast<double>());
-          pointCloudEigen.push_back(pe);
+          // If there is no pose for the cloud then add it to a buffer
+          if (idx_cloud > idx_pose) {
+            //   cloudBuffer.push_back(std::shared_ptr(cloud));
+              std::cout << "No pose for the pointcloud   |  Buffer size:  " << cloudBuffer.size() << std::endl;
+              return;
+          }
+
+          // Get the reference to first item in buffer
+          PointCloud2MessagePtr & cloud = cloudBuffer.at(i);
+
+          // Change the frame_id of the point cloud
+          cloud->frame_id.value() = "ba_estimate";
+          // Convert srrg2 to sensor_msgs point cloud
+          sensor_msgs::PointCloud2ConstPtr rosMsg = Converter::convert(cloud);
+
+          // Publish the raw cloud as ROS message
+          pointCloudPub_.publish(*rosMsg);
+
+          // Create Point3f Point Cloud from srrg2 point cloud
+          std::shared_ptr<Point3fVectorCloud> pointCloudPoint3f(new Point3fVectorCloud());
+          cloud->getPointCloud(*pointCloudPoint3f);
+
+          // TODO: optimize
+          // Conver point cloud to the std::vector<Eigen::Vector3d
+          std::vector<Eigen::Vector3d> pointCloudEigen;
+          // For now copy all the points from Point3f point cloud to std::vector<Eigen::Vector3d>
+          for (const Point3f& p : *pointCloudPoint3f) {
+              Eigen::Vector3d pe(p.coordinates().cast<double>());
+              pointCloudEigen.push_back(pe);
+          }
+
+          // For each point cloud create an KDTree and leafs | Get the last pose 
+          createKDTree(pointCloudEigen, poses_.back());
+          // Publish the normals created from the last point cloud
+          //   int idx = kdTreeLeafes_.size()-1;
+          //   publishNormals(idx);
+
+          // Store Point3f cloud in a vector
+          pointClouds_.push_back(std::move(pointCloudPoint3f));
+
+          // Remove cloud from buffer
+          cloudBuffer.erase(cloudBuffer.begin());
       }
-
-      // For each point cloud create an KDTree and leafs
-      createKDTree(pointCloudEigen);
-      // Publish the normals created from the last point cloud
-    //   int idx = kdTreeLeafes_.size()-1;
-    //   publishNormals(idx);
-
-      // Store Point3f cloud in a vector
-      pointClouds_.push_back(std::move(pointCloudPoint3f));
   }
 
   Eigen::Matrix3d PointCloudProc::calculateMatrixBetween2Vectors(Eigen::Vector3d a, Eigen::Vector3d b) {
@@ -186,7 +214,7 @@ namespace structure_refinement {
       visual_tools_->trigger();
   }
 
-  void PointCloudProc::createKDTree(std::vector<Eigen::Vector3d>& cloud) {
+  void PointCloudProc::createKDTree(std::vector<Eigen::Vector3d>& cloud, const Eigen::Isometry3d& lastPose) {
       using ContainerType = std::vector<Eigen::Vector3d>;
       using TreeNodeType = TreeNode3D<ContainerType>;
       using TreeNodeTypePtr = TreeNodeType*;
@@ -202,9 +230,9 @@ namespace structure_refinement {
                                               nullptr));
 
       // Transform kdTree according to the BA pose
-      Eigen::Matrix3d rot = Eigen::Matrix3d::Identity();
-      Eigen::Vector3d trans = Eigen::Vector3d(20,20,20);
-      kdTree->applyTransform(rot,trans);
+      // Eigen::Matrix3d rot = Eigen::Matrix3d::Identity();
+      // Eigen::Vector3d trans = Eigen::Vector3d(20,20,20);
+      kdTree->applyTransform(lastPose.linear(), lastPose.translation());
       // Create a vector of leafes
       std::vector<TreeNodeTypePtr> leafes;
       // Create iterator for the leafes
