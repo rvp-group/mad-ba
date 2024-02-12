@@ -63,9 +63,8 @@ namespace structure_refinement {
     using ContainerType = std::vector<Eigen::Vector3d>;
     using TreeNodeType = TreeNode3D<ContainerType>;
     using TreeNodeTypePtr = TreeNodeType *;
-    std::vector<std::vector<TreeNodeTypePtr>> kdTreeLeafes_;  // Leafes from the subsequential kd-trees
-    std::vector<std::shared_ptr<TreeNodeType>> kdTrees_;      // Kd-trees created from subsequential point clouds - probably I don't need them
-
+    std::vector<std::vector<TreeNodeTypePtr>> kdTreeLeafes_;  // Leafes from the subsequential kd-trees - Index corresponds to pose index
+    std::vector<std::shared_ptr<TreeNodeType>> kdTrees_;      // Kd-trees created from subsequential point clouds - Index corresponds to pose index | Probably I don't need them
     // std::vector<Point3fVectorCloud> poses;
 
     // ROS

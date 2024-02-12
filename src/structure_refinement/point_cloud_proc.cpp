@@ -29,8 +29,8 @@ namespace structure_refinement {
   PointCloudProc::PointCloudProc() : nh_("~") {
 
       // ROS publishers
-      pointCloudPub_ = nh_.advertise<sensor_msgs::PointCloud2>("raw_point_cloud", 1000);
-      odomPub_ = nh_.advertise<nav_msgs::Odometry>("ba_estimate", 1000);
+      pointCloudPub_ = nh_.advertise<sensor_msgs::PointCloud2>("raw_point_cloud", 100);
+      odomPub_ = nh_.advertise<nav_msgs::Odometry>("ba_estimate", 100);
 
       // Initalize rviz visual tools
       visual_tools_.reset(new rviz_visual_tools::RvizVisualTools("map", "rviz_visual_markers"));
@@ -55,8 +55,12 @@ namespace structure_refinement {
   bool PointCloudProc::putMessage(srrg2_core::BaseSensorMessagePtr msg) {
       // Process only n-th first clouds - RAM memory is a limit
       static int msgCnt = -1;
-      if (++msgCnt >= 3 * 500)
+      if (++msgCnt >= 3 * 300) {
+          // Publish results before exit
+          publishNormals(0);                         // First normals
+          publishNormals(kdTreeLeafes_.size() - 1);  // Last normals
           exit(0);
+      }
 
       // Let's assume that for each point cloud in a .bag file there is one odometry pose
       // Try to convert the message to srrg2 point cloud
@@ -123,8 +127,8 @@ namespace structure_refinement {
       // For each point cloud create an KDTree and leafs
       createKDTree(pointCloudEigen);
       // Publish the normals created from the last point cloud
-      int idx = kdTreeLeafes_.size()-1;
-      publishNormals(idx);
+    //   int idx = kdTreeLeafes_.size()-1;
+    //   publishNormals(idx);
 
       // Store Point3f cloud in a vector
       pointClouds_.push_back(std::move(pointCloudPoint3f));
@@ -147,32 +151,35 @@ namespace structure_refinement {
       return r;
   }
 
-  void PointCloudProc::publishNormals(int idx)
-  {
+  void PointCloudProc::publishNormals(int idx) {
+      // Delete all markers from Rviz
+        // visual_tools_->deleteAllMarkers();
+
       static uint8_t markerColor = 0;  // Colors change <0,14>
       if (++markerColor > 14)
           markerColor = 0;
 
-    //   visual_tools_->deleteAllMarkers();
+      uint8_t decimation = 10;
 
       Eigen::Isometry3d pose = Eigen::Isometry3d::Identity();
       for (auto& leaf : kdTreeLeafes_.at(idx)) {
+          // Decimate for Rviz
+          if (static int cnt; cnt++ % decimation != 0)
+              continue;
           // Set the translation part
           pose.translation() = Eigen::Vector3d(leaf->mean_);
           // Calculate the rotation matrix
           Eigen::Matrix3d rotMatrix = calculateMatrixBetween2Vectors(Eigen::Vector3d(1, 0, 0), leaf->eigenvectors_.col(0));
           pose.linear() = rotMatrix;
           // Publish normal as arrow
-          visual_tools_->publishArrow(pose, static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::MEDIUM);
+          visual_tools_->publishArrow(pose, static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::XXXLARGE);
       }
 
       // Trigger publishing of all arrows
       visual_tools_->trigger();
   }
 
-
-  void PointCloudProc::createKDTree(std::vector<Eigen::Vector3d> &cloud) {
-
+  void PointCloudProc::createKDTree(std::vector<Eigen::Vector3d>& cloud) {
       using ContainerType = std::vector<Eigen::Vector3d>;
       using TreeNodeType = TreeNode3D<ContainerType>;
       using TreeNodeTypePtr = TreeNodeType*;
@@ -187,6 +194,10 @@ namespace structure_refinement {
                                               nullptr,
                                               nullptr));
 
+      // Transform kdTree according to the BA pose
+      Eigen::Matrix3d rot = Eigen::Matrix3d::Identity();
+      Eigen::Vector3d trans = Eigen::Vector3d(20,20,20);
+      kdTree->applyTransform(rot,trans);
       // Create a vector of leafes
       std::vector<TreeNodeTypePtr> leafes;
       // Create iterator for the leafes
@@ -197,8 +208,7 @@ namespace structure_refinement {
       kdTreeLeafes_.push_back(std::move(leafes));
       // Pass kdTree to a vector for storage
       kdTrees_.push_back(std::move(kdTree));
-  } 
-
+  }
 
   // Just for test
   bool PointCloudProc::createIntensityImage(srrg2_core::BaseSensorMessagePtr msg) {
