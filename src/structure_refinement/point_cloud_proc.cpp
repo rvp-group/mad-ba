@@ -52,23 +52,42 @@ namespace structure_refinement {
   }
 
   bool PointCloudProc::putMessage(srrg2_core::BaseSensorMessagePtr msg) {
+      
+      // Process only n-th first clouds
+      static int msgCnt = -1;
+      if (++msgCnt >= 3000)
+          exit(0);
 
-      // Convert message to srrg2 point cloud
-      PointCloud2MessagePtr cloud = std::dynamic_pointer_cast<PointCloud2Message>(msg);
-      if (!cloud) {
+      // Let's assume that for each point cloud in a .bag file there is one odometry pose
+      // Try to convert the message to srrg2 point cloud
+      if (PointCloud2MessagePtr cloud = std::dynamic_pointer_cast<PointCloud2Message>(msg)) {
+          static int cloudMsgCnt = 0;
+          std::cout << std::setprecision(12) << "Point cloud message no." << cloudMsgCnt++ << " Ts: " << cloud->timestamp.value() << std::endl;
+          handleCloudMessage(cloud);
+      }
+      // Try to convert the message to srrg2 odometry
+      else if (OdometryMessagePtr odom = std::dynamic_pointer_cast<OdometryMessage>(msg)) {
+          static int odomMsgCnt = 0;
+          std::cout << std::setprecision(12) << "Odometry message no." << odomMsgCnt++ << " Ts: " << odom->timestamp.value() << std::endl;
+          handleOdometryMessage(odom);
+      } else {
           std::cerr << "PointCloudProc::putMessage | no msg received" << std::endl;
           return false;
       }
 
-      // Print the general info for debugging
-      static int msgCnt = -1;
-      msgCnt++;
-      if (msgCnt >= 10)
-          exit(0);
+      return true;
+  }
 
-      std::cout << std::setprecision(12) << "Cnt: " << msgCnt << " TS: " << cloud->timestamp.value()
-                << " Cloud height: " << cloud->height.value() << " Cloud width: " << cloud->width.value() << std::endl;
+  void PointCloudProc::handleOdometryMessage(OdometryMessagePtr odom)
+  {
+    // std::cout << "Odom message TODO" << std::endl;
+    nav_msgs::OdometryConstPtr rosMsgPtr = Converter::convert(odom);
+    static ros::Publisher odomPub_ = nh_.advertise<nav_msgs::Odometry>("ba_estimate", 1000);
+    odomPub_.publish(*rosMsgPtr);
+  }
 
+  void PointCloudProc::handleCloudMessage(PointCloud2MessagePtr cloud){
+    
       // Change the frame_id of the point cloud
       cloud->frame_id.value() = "map";
       // Convert srrg2 to sensor_msgs point cloud
@@ -90,13 +109,14 @@ namespace structure_refinement {
           pointCloudEigen.push_back(pe);
       }
 
-      // For each point cloud create an KDTree
+      // For each point cloud create an KDTree and leafs
       createKDTree(pointCloudEigen);
-      publishNormals(msgCnt);
+      // Publish the normals created from the last point cloud
+      int idx = kdTreeLeafes_.size()-1;
+      publishNormals(idx);
 
       // Store Point3f cloud in a vector
       pointClouds_.push_back(std::move(pointCloudPoint3f));
-      return true;
   }
 
   Eigen::Matrix3d PointCloudProc::calculateMatrixBetween2Vectors(Eigen::Vector3d a, Eigen::Vector3d b) {

@@ -17,6 +17,8 @@
 #include <srrg_system_utils/chrono.h>
 #include <srrg_viewer/active_drawable.h>
 #include <srrg_messages/messages/point_cloud2_message.h>
+#include <srrg_messages/messages/odometry_message.h>
+#include <nav_msgs/Odometry.h>
 
 
 #include <iostream>
@@ -38,7 +40,9 @@ namespace structure_refinement {
     PARAM(PropertyFloat, radius, "radius", 2.f, 0);
     PointCloudProc();
     virtual ~PointCloudProc();
-    bool putMessage(srrg2_core::BaseSensorMessagePtr msg) override;   // Handle point cloud messages from the pipeline
+    bool putMessage(srrg2_core::BaseSensorMessagePtr msg) override;   // Handle messages from the srrg pipeline
+    void handleCloudMessage(PointCloud2MessagePtr);                   // Handle the point cloud message
+    void handleOdometryMessage(OdometryMessagePtr);                   // Handle the odometry pose message
     bool createIntensityImage(srrg2_core::BaseSensorMessagePtr msg);  // Just for tests
     void publishNormals(int);                                         // Publish normals for n-th set of point cloud / pose
     void createKDTree(std::vector<Eigen::Vector3d> &cloud);           // Creates kd-trees from the vector of points
