@@ -74,13 +74,15 @@ namespace structure_refinement {
           static int odomMsgCnt = 0;
           std::cout << std::setprecision(12) << "Odometry message no." << odomMsgCnt++ << " Ts: " << odom->timestamp.value() << std::endl;
           handleOdometryMessage(odom);
+      }
       // Try to convert the message to srrg2 odometry
-      } else if (TransformEventsMessagePtr tfMsg = std::dynamic_pointer_cast<TransformEventsMessage>(msg)) {
+      else if (TransformEventsMessagePtr tfMsg = std::dynamic_pointer_cast<TransformEventsMessage>(msg)) {
           static int tfMsgCnt = 0;
           std::cout << std::setprecision(12) << "Transform message no." << tfMsgCnt++ << " Ts: " << tfMsg->timestamp.value() << std::endl;
           handleTFMessage(tfMsg);
+      }
       // Other messages types
-      } else {
+      else {
           std::cerr << "PointCloudProc::putMessage | no handler for the received message type " << std::endl;
           return false;
       }
@@ -159,7 +161,7 @@ namespace structure_refinement {
           createKDTree(pointCloudEigen, poses_.back());
           // Publish the normals created from the last point cloud
           //   int idx = kdTreeLeafes_.size()-1;
-          //   publishNormals(idx);
+          //   publishCloudNormals(idx);
 
           // Store Point3f cloud in a vector
           pointClouds_.push_back(std::move(pointCloudPoint3f));
@@ -169,7 +171,7 @@ namespace structure_refinement {
       }
   }
 
-  Eigen::Matrix3d PointCloudProc::calculateMatrixBetween2Vectors(Eigen::Vector3d a, Eigen::Vector3d b) {
+  Eigen::Matrix3d PointCloudProc::matrixBetween2Vectors(Eigen::Vector3d a, Eigen::Vector3d b) {
       a = a / a.norm();
       b = b / b.norm();
       Eigen::Vector3d v = a.cross(b);
@@ -193,6 +195,8 @@ namespace structure_refinement {
     // else
     return angle;
   }
+
+  void PointCloudProc::publishCloudNormals(int idx) {
       // Delete all markers from Rviz
         // visual_tools_->deleteAllMarkers();
 
@@ -210,7 +214,7 @@ namespace structure_refinement {
           // Set the translation part
           pose.translation() = Eigen::Vector3d(leaf->mean_);
           // Calculate the rotation matrix
-          Eigen::Matrix3d rotMatrix = calculateMatrixBetween2Vectors(Eigen::Vector3d(1, 0, 0), leaf->eigenvectors_.col(0));
+          Eigen::Matrix3d rotMatrix = matrixBetween2Vectors(Eigen::Vector3d(1, 0, 0), leaf->eigenvectors_.col(0));
           pose.linear() = rotMatrix;
           // Publish normal as arrow
           visual_tools_->publishArrow(pose, static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::XXXLARGE);

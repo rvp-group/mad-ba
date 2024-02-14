@@ -36,7 +36,7 @@ namespace structure_refinement {
     uint64_t id_pose_;
     uint64_t id_surfel_;
     float radius_;
-    std::vector<Eigen::Vector3f> points_;
+    std::vector<Eigen::Vector3d> points_;
     Eigen::Vector3f normal_;
     Eigen::VectorXf uncertainty_;
   };

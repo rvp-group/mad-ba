@@ -45,9 +45,10 @@ namespace structure_refinement {
     void handleOdometryMessage(OdometryMessagePtr);                   // Handle the odometry pose message
     void handleTFMessage(TransformEventsMessagePtr);                   // Handle the tf message
     bool createIntensityImage(srrg2_core::BaseSensorMessagePtr msg);  // Just for tests
-    void publishNormals(int);                                         // Publish normals for n-th set of point cloud / pose
+    void publishCloudNormals(int);                                         // Publish normals for n-th set of point cloud / pose
     void createKDTree(std::vector<Eigen::Vector3d> &cloud, const Eigen::Isometry3d &lastPose);  // Creates kd-trees from the vector of points
-    Eigen::Matrix3d calculateMatrixBetween2Vectors(Eigen::Vector3d a, Eigen::Vector3d b);
+    Eigen::Matrix3d matrixBetween2Vectors(Eigen::Vector3d, Eigen::Vector3d );
+    double angleBetween2Vectors(const Eigen::Vector3d &, const Eigen::Vector3d &);
 
    protected:
     using PointUnprojectorBase = srrg2_core::PointUnprojectorBase_<srrg2_core::PointNormalIntensity3fVectorCloud>;
