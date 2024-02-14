@@ -111,6 +111,39 @@ namespace structure_refinement {
       visual_tools_->trigger();
   }
 
+  void PointCloudProc::visializeAllSurfels() {
+      
+      Eigen::Isometry3d surfelPose = Eigen::Isometry3d::Identity();
+      uint8_t markerColor = 0;
+      long surfelCnt = 0; 
+      int decimation = 10;
+
+      //  Get all the surfels possible
+      for (auto treeLeafs : kdTreeLeafes_) {
+          // Change color
+          if (++markerColor > 14)
+              markerColor = 0;
+
+          // Get the surfels
+          for (auto& surfel : treeLeafs) {
+              // Decimate for Rviz
+              if (surfelCnt++ % decimation != 0)
+                  continue;
+              // Set the translation part
+              surfelPose.translation() = Eigen::Vector3d(surfel->mean_);
+              // Calculate the rotation matrix
+              Eigen::Matrix3d rotMatrix = matrixBetween2Vectors(Eigen::Vector3d(1, 0, 0), surfel->eigenvectors_.col(0));
+              surfelPose.linear() = rotMatrix;
+              // Publish normal as arrow
+              visual_tools_->publishArrow(surfelPose, static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::XXXLARGE);
+          }
+      }
+      std::cout << "Number of poses: " << kdTreeLeafes_.size() << std::endl;
+      std::cout << "Number of surfels:  " << surfelCnt << std::endl;
+
+      visual_tools_->trigger();
+  }
+
   void PointCloudProc::mergeSurfels() {
 
       // Parameters for merging
@@ -158,42 +191,43 @@ namespace structure_refinement {
                           unsigned int idLeafJ = (unsigned int) idTmp;
                           
                           // If correspondence found then check if that surfel already exists
-                          std::shared_ptr<Surfel> foundSurfel;
+                          std::shared_ptr<Surfel> surfel;
+                          bool foundSurfelI = false, foundSurfelJ = false;
                           for (std::shared_ptr<Surfel> tmpSurfel : surfels_) {
                               if (tmpSurfel->checkIfsurfelIdExists(i, idLeafI)) {
-                                  foundSurfel = tmpSurfel;
+                                  surfel = tmpSurfel;
+                                  foundSurfelI = true;
                                   break;
                               }
                               if (tmpSurfel->checkIfsurfelIdExists(j, idLeafJ)) {
-                                  foundSurfel = tmpSurfel;
+                                  surfel = tmpSurfel;
+                                  foundSurfelJ = true;
                                   break;
                               }
                           }
 
-                          std::shared_ptr<Surfel> surfel;
-                          bool foundExistingSurfel = false;
-                          if (foundSurfel) {
-                              // Assign foundSurfel for further processing
-                              surfel = foundSurfel;
-                              foundExistingSurfel = true;
-                          } else {
-                              // If correspondece found then create the surfel
+                          // If surfel doesnt exists then create it
+                          if (!surfel) {
                               surfel = std::make_shared<Surfel>();
                           }
 
-                          // Create observation for given surfel from pose I                          
-                          Eigen::Matrix<double,9,1> observationI = Eigen::Matrix<double,9,1>::Identity();
-                          observationI.block<3, 1>(0, 0) = leafI->mean_;
-                          observationI.block<3, 1>(3, 0) = leafI->eigenvectors_.col(0).transpose();
-                          observationI.block<3, 1>(6, 0) = leafI->bbox_;
-                          surfel->addObservation(poses_.at(i), i, observationI);
+                          // Create observation for given surfel from pose I
+                          if (!foundSurfelI) {
+                              Eigen::Matrix<double, 9, 1> observationI = Eigen::Matrix<double, 9, 1>::Identity();
+                              observationI.block<3, 1>(0, 0) = leafI->mean_;
+                              observationI.block<3, 1>(3, 0) = leafI->eigenvectors_.col(0).transpose();
+                              observationI.block<3, 1>(6, 0) = leafI->bbox_;
+                              surfel->addObservation(poses_.at(i), i, observationI);
+                          }
 
                           // Create observation for given surfel from pose J
-                          Eigen::Matrix<double, 9, 1> observationJ = Eigen::Matrix<double, 9, 1>::Identity();
-                          observationJ.block<3, 1>(0, 0) = leafI->mean_;
-                          observationJ.block<3, 1>(3, 0) = leafI->eigenvectors_.col(0).transpose();
-                          observationJ.block<3, 1>(6, 0) = leafI->bbox_;
-                          surfel->addObservation(poses_.at(j), j, observationJ);
+                          if (!foundSurfelJ) {
+                              Eigen::Matrix<double, 9, 1> observationJ = Eigen::Matrix<double, 9, 1>::Identity();
+                              observationJ.block<3, 1>(0, 0) = leafI->mean_;
+                              observationJ.block<3, 1>(3, 0) = leafI->eigenvectors_.col(0).transpose();
+                              observationJ.block<3, 1>(6, 0) = leafI->bbox_;
+                              surfel->addObservation(poses_.at(j), j, observationJ);
+                          }
 
                           // ToDo: make Surfel method for this
                           // Add leafI in a kdTreeI
@@ -201,48 +235,16 @@ namespace structure_refinement {
                           // Add leafJ in a kdTreeJ
                           surfel->posesIds_[j].insert(idLeafJ);
                           // Add surfel to a vector for storage
-                          if (foundExistingSurfel == false)
+                          if (foundSurfelI == false && foundSurfelJ == false)
                               surfels_.push_back(std::move(surfel));
                       }
-                      //    visual_tools_->deleteAllMarkers();
-                      //    ros::Duration(1.0).sleep();
-                      //    std::cout << "Angle between surfels:  " <<  * 180.0 / M_PI << std::endl;
                   }
               }
               visual_tools_->trigger();
               std::cout << " i: " << i << "  j:  " << j << std::endl;
               std::cout << " Matched surfels "  << matchedSurfels << std::endl;
           }
-          // Display the surfels that should be merged
       }
-      // Get all the surfels possible
-      // For each kdTree (pose)
-    //   for (auto treeLeafs : kdTreeLeafes_) {
-    //       // Change color
-    //       if (++markerColor > 14)
-    //           markerColor = 0;
-
-    //       // Get the surfels
-    //       for (auto& surfel : treeLeafs) {
-
-              
-    //           // Decimate for Rviz
-    //           if (surfelCnt++ % decimation != 0)
-    //               continue;
-    //           // Set the translation part
-    //           surfelPose.translation() = Eigen::Vector3d(surfel->mean_);
-    //           // Calculate the rotation matrix
-    //           Eigen::Matrix3d rotMatrix = calculateMatrixBetween2Vectors(Eigen::Vector3d(1, 0, 0), surfel->eigenvectors_.col(0));
-    //           surfelPose.linear() = rotMatrix;
-    //           // Publish normal as arrow
-    //           visual_tools_->publishArrow(surfelPose, static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::XXXLARGE);
-    //       }
-    //   }
-    //   std::cout << "Number of poses: " << kdTreeLeafes_.size() << std::endl;
-    //   std::cout << "Number of surfels:  " << surfelCnt << std::endl;
-      
-       
-    //   visual_tools_->trigger();
   }
 
   int PointCloudProc::findLeafId(unsigned int kdTreeId, TreeNodeTypePtr leaf) {
@@ -252,6 +254,7 @@ namespace structure_refinement {
       }
       return -1;
   }
+
   void PointCloudProc::handleTFMessage(TransformEventsMessagePtr tfMsg) {
       // Just republish the message to ROS
       tf2_msgs::TFMessageConstPtr tfMsgPtr = Converter::convert(tfMsg);

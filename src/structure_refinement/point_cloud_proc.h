@@ -52,6 +52,7 @@ namespace structure_refinement {
     double angleBetween2Vectors(const Eigen::Vector3d &, const Eigen::Vector3d &);
     void mergeSurfels();
     void visualizeSurfel(TreeNodeTypePtr, int, int);
+    void visializeAllSurfels();
     int findLeafId(unsigned int, TreeNodeTypePtr);  // Find the id of a leaf in a given kdTree
 
    protected:
