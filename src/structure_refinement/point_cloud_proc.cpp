@@ -186,7 +186,13 @@ namespace structure_refinement {
       return r;
   }
 
-  void PointCloudProc::publishNormals(int idx) {
+  double PointCloudProc::angleBetween2Vectors(const Eigen::Vector3d & a, const Eigen::Vector3d & b) {
+    double angle = atan2(a.cross(b).norm(), a.dot(b));
+    // if (angle > M_PI / 2.0)
+    //     return M_PI - angle;
+    // else
+    return angle;
+  }
       // Delete all markers from Rviz
         // visual_tools_->deleteAllMarkers();
 

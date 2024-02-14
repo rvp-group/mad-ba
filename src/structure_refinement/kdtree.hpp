@@ -46,7 +46,11 @@ inline void TreeNode3D<ContainerType_>::build(
   Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> es;
   es.computeDirect(cov);
   // es.compute(cov);
-  eigenvectors_  = es.eigenvectors();
+  eigenvectors_ = es.eigenvectors();
+  // Check the direction of a vector and flip it, so that it points to a LiDAR
+  if (eigenvectors_.col(0).dot(mean_) > 0) {
+      eigenvectors_ *= -1;
+  }
   num_points_ = computeBoundingBox(bbox_, mean_, eigenvectors_.transpose(), begin, end);
 
   if (bbox_(2) < bbox_threshold) {
