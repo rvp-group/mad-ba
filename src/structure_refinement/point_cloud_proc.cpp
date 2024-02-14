@@ -55,10 +55,15 @@ namespace structure_refinement {
   bool PointCloudProc::putMessage(srrg2_core::BaseSensorMessagePtr msg) {
       // Process only n-th first clouds - RAM memory is a limit
       static int msgCnt = -1;
-      if (++msgCnt >= 3 * 300) {
+      // Skip first n messages
+      if (++msgCnt < 3 * 100)
+          return true;
+      else if (msgCnt > 3 * 120) {
           // Publish results before exit
-          publishNormals(0);                         // First normals
-          publishNormals(kdTreeLeafes_.size() - 1);  // Last normals
+          //   publishCloudNormals(0);                         // First normals
+          //   publishCloudNormals(kdTreeLeafes_.size() - 1);  // Last normals
+          mergeSurfels();
+          ros::Duration(5.0).sleep();
           exit(0);
       }
 
@@ -90,6 +95,163 @@ namespace structure_refinement {
       return true;
   }
 
+  void PointCloudProc::visualizeSurfel(TreeNodeType* surfel, int markerColor, int type) {
+      Eigen::Isometry3d surfelPose = Eigen::Isometry3d::Identity();
+      surfelPose.translation() = Eigen::Vector3d(surfel->mean_);
+      Eigen::Matrix3d rotMatrix = matrixBetween2Vectors(Eigen::Vector3d(1, 0, 0), surfel->eigenvectors_.col(0));
+      surfelPose.linear() = rotMatrix;
+      switch (type) {
+          case 1:
+              visual_tools_->publishArrow(surfelPose, static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::XLARGE);
+              break;
+          case 2:
+              visual_tools_->publishArrow(surfelPose, static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::XLARGE);
+              break;
+      }
+      visual_tools_->trigger();
+  }
+
+  void PointCloudProc::mergeSurfels() {
+
+      // Parameters for merging
+      // Max distance between two surfels to consider the merge
+      double maxDistance = 0.05;
+      // Max angle between two surfels to consider the merge
+      double maxAngle = 2.0 * M_PI / 180.0;
+
+    //   Eigen::Isometry3d surfelPose = Eigen::Isometry3d::Identity();
+      u_long markerColor = 0;
+    //   long surfelCnt = 0; 
+    //   int decimation = 10;
+
+      int matchedSurfels = 0;
+      // Iterate over all kdTrees (poses) pairs
+      for (unsigned long i = 0; i < kdTreeLeafes_.size() - 1; i++) {
+          for (unsigned long j = i + 1; j < kdTreeLeafes_.size(); j++) {
+              // For each surfer from i-th kdTree find the closest surfer from j-th kdTree
+            //   for (auto& leafI : kdTreeLeafes_[i]) {
+              for (unsigned int idLeafI = 0; idLeafI < kdTreeLeafes_[i].size(); idLeafI++) {
+                  //   auto kdTreetmpp = kdTrees_.at(j);
+                  // std::shared_ptr<TreeNodeType> surfelB = std::shared_ptr<TreeNodeType>(kdTreetmpp->bestMatchingLeafFast(surfelA->mean_));
+                  // Get pointer to a surfelB
+                  TreeNodeType* leafI = kdTreeLeafes_[i].at(idLeafI);
+                  TreeNodeType* leafJ = kdTrees_.at(j)->bestMatchingLeafFast(leafI->mean_);
+                  //   std::cout << "SurfelB size:  "  << surfelB->num_points_ << std::endl;
+                  //   auto& surfelB = (kdTrees_.at(j))->bestMatchingLeafFast(surfelA->mean_);
+                  double distance = (leafJ->mean_ - leafI->mean_).norm();
+                  if (distance < maxDistance) {
+                      double angle = angleBetween2Vectors(leafI->eigenvectors_.col(0), leafJ->eigenvectors_.col(0));
+                      if (angle < maxAngle) {
+                          // Visualize the surfels for merge
+                          visualizeSurfel(leafI, markerColor % 14, 1);
+                          visualizeSurfel(leafJ, markerColor % 14, 2);
+                          markerColor++;
+                          matchedSurfels++;
+
+                          // Need to find the leafJid in the vector anyway:
+                          // ToDo optimize somehow because its very slow - give ids to surfels or sth
+                          int idTmp = findLeafId(j, leafJ);
+                          if (idTmp == -1){
+                              std::cerr << "Not found id of existing leaf" << std::endl;
+                              exit(0);
+                          }
+                          unsigned int idLeafJ = (unsigned int) idTmp;
+                          
+                          // If correspondence found then check if that surfel already exists
+                          std::shared_ptr<Surfel> foundSurfel;
+                          for (std::shared_ptr<Surfel> tmpSurfel : surfels_) {
+                              if (tmpSurfel->checkIfsurfelIdExists(i, idLeafI)) {
+                                  foundSurfel = tmpSurfel;
+                                  break;
+                              }
+                              if (tmpSurfel->checkIfsurfelIdExists(j, idLeafJ)) {
+                                  foundSurfel = tmpSurfel;
+                                  break;
+                              }
+                          }
+
+                          std::shared_ptr<Surfel> surfel;
+                          bool foundExistingSurfel = false;
+                          if (foundSurfel) {
+                              // Assign foundSurfel for further processing
+                              surfel = foundSurfel;
+                              foundExistingSurfel = true;
+                          } else {
+                              // If correspondece found then create the surfel
+                              surfel = std::make_shared<Surfel>();
+                          }
+
+                          // Create observation for given surfel from pose I                          
+                          Eigen::Matrix<double,9,1> observationI = Eigen::Matrix<double,9,1>::Identity();
+                          observationI.block<3, 1>(0, 0) = leafI->mean_;
+                          observationI.block<3, 1>(3, 0) = leafI->eigenvectors_.col(0).transpose();
+                          observationI.block<3, 1>(6, 0) = leafI->bbox_;
+                          surfel->addObservation(poses_.at(i), i, observationI);
+
+                          // Create observation for given surfel from pose J
+                          Eigen::Matrix<double, 9, 1> observationJ = Eigen::Matrix<double, 9, 1>::Identity();
+                          observationJ.block<3, 1>(0, 0) = leafI->mean_;
+                          observationJ.block<3, 1>(3, 0) = leafI->eigenvectors_.col(0).transpose();
+                          observationJ.block<3, 1>(6, 0) = leafI->bbox_;
+                          surfel->addObservation(poses_.at(j), j, observationJ);
+
+                          // ToDo: make Surfel method for this
+                          // Add leafI in a kdTreeI
+                          surfel->posesIds_[i].insert(idLeafI);
+                          // Add leafJ in a kdTreeJ
+                          surfel->posesIds_[j].insert(idLeafJ);
+                          // Add surfel to a vector for storage
+                          if (foundExistingSurfel == false)
+                              surfels_.push_back(std::move(surfel));
+                      }
+                      //    visual_tools_->deleteAllMarkers();
+                      //    ros::Duration(1.0).sleep();
+                      //    std::cout << "Angle between surfels:  " <<  * 180.0 / M_PI << std::endl;
+                  }
+              }
+              visual_tools_->trigger();
+              std::cout << " i: " << i << "  j:  " << j << std::endl;
+              std::cout << " Matched surfels "  << matchedSurfels << std::endl;
+          }
+          // Display the surfels that should be merged
+      }
+      // Get all the surfels possible
+      // For each kdTree (pose)
+    //   for (auto treeLeafs : kdTreeLeafes_) {
+    //       // Change color
+    //       if (++markerColor > 14)
+    //           markerColor = 0;
+
+    //       // Get the surfels
+    //       for (auto& surfel : treeLeafs) {
+
+              
+    //           // Decimate for Rviz
+    //           if (surfelCnt++ % decimation != 0)
+    //               continue;
+    //           // Set the translation part
+    //           surfelPose.translation() = Eigen::Vector3d(surfel->mean_);
+    //           // Calculate the rotation matrix
+    //           Eigen::Matrix3d rotMatrix = calculateMatrixBetween2Vectors(Eigen::Vector3d(1, 0, 0), surfel->eigenvectors_.col(0));
+    //           surfelPose.linear() = rotMatrix;
+    //           // Publish normal as arrow
+    //           visual_tools_->publishArrow(surfelPose, static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::XXXLARGE);
+    //       }
+    //   }
+    //   std::cout << "Number of poses: " << kdTreeLeafes_.size() << std::endl;
+    //   std::cout << "Number of surfels:  " << surfelCnt << std::endl;
+      
+       
+    //   visual_tools_->trigger();
+  }
+
+  int PointCloudProc::findLeafId(unsigned int kdTreeId, TreeNodeTypePtr leaf) {
+      for (unsigned int i = 0; i < kdTreeLeafes_[kdTreeId].size(); i++) {
+          if (leaf->mean_ == kdTreeLeafes_[kdTreeId].at(i)->mean_)
+              return i;
+      }
+      return -1;
+  }
   void PointCloudProc::handleTFMessage(TransformEventsMessagePtr tfMsg) {
       // Just republish the message to ROS
       tf2_msgs::TFMessageConstPtr tfMsgPtr = Converter::convert(tfMsg);
@@ -116,7 +278,7 @@ namespace structure_refinement {
       // Create buffer for messages
       static std::vector<PointCloud2MessagePtr> cloudBuffer;
       // Add item to a buffer
-      cloudBuffer.push_back(std::shared_ptr(cloudMsg)); 
+      cloudBuffer.push_back(cloudMsg); 
       
       // Try to empty the buffer
       for (unsigned int i = 0; i < cloudBuffer.size(); i++) {

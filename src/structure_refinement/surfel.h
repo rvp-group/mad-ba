@@ -31,14 +31,19 @@ namespace structure_refinement {
     Surfel();
     virtual ~Surfel();
     bool putMessage(srrg2_core::BaseSensorMessagePtr msg) override;
+    void addObservation(Eigen::Isometry3d &, unsigned int, Eigen::Matrix<double, 9, 1> &);  // Add new observation
+    bool checkIfsurfelIdExists(unsigned int, unsigned int); // Checks whether such leafId was already associated
 
-  protected:
-    uint64_t id_pose_;
-    uint64_t id_surfel_;
-    float radius_;
-    std::vector<Eigen::Vector3d> points_;
-    Eigen::Vector3f normal_;
-    Eigen::VectorXf uncertainty_;
+  //  protected:
+
+    unsigned int id_;
+    // double radius_;
+    // Eigen::Vector3d normal_;
+    // Eigen::VectorXd uncertainty_;
+    std::map<unsigned int, std::set<unsigned int>> posesIds_;    // Corresponding id's of surfels in given poses | PoseId -> SurfelId its (id in kdTree vector)
+    std::vector<std::shared_ptr<Eigen::Isometry3d>> poses_;      // Poses from which the surfel was observed
+    std::vector<std::shared_ptr<Eigen::Matrix<double, 9, 1>>> observations_;  // Observations from each pose: mean (3DOF), normal (3DOF), bbox (1DOF)
+    // std::vector<Eigen::Vector3d> points_;
   };
 
   using SurfelPtr = std::shared_ptr<Surfel>;

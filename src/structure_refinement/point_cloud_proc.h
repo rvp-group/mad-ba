@@ -27,6 +27,7 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <rviz_visual_tools/rviz_visual_tools.h>
 #include "kdtree.hpp"
+#include "surfel.h"
 
 namespace structure_refinement {
   using namespace srrg2_core;
@@ -49,6 +50,9 @@ namespace structure_refinement {
     void createKDTree(std::vector<Eigen::Vector3d> &cloud, const Eigen::Isometry3d &lastPose);  // Creates kd-trees from the vector of points
     Eigen::Matrix3d matrixBetween2Vectors(Eigen::Vector3d, Eigen::Vector3d );
     double angleBetween2Vectors(const Eigen::Vector3d &, const Eigen::Vector3d &);
+    void mergeSurfels();
+    void visualizeSurfel(TreeNodeTypePtr, int, int);
+    int findLeafId(unsigned int, TreeNodeTypePtr);  // Find the id of a leaf in a given kdTree
 
    protected:
     using PointUnprojectorBase = srrg2_core::PointUnprojectorBase_<srrg2_core::PointNormalIntensity3fVectorCloud>;
@@ -67,6 +71,8 @@ namespace structure_refinement {
     std::vector<std::vector<TreeNodeTypePtr>> kdTreeLeafes_;  // Leafes from the subsequential kd-trees - Index corresponds to pose index
     std::vector<std::shared_ptr<TreeNodeType>> kdTrees_;      // Kd-trees created from subsequential point clouds - Index corresponds to pose index | Probably I don't need them
     std::vector<Eigen::Isometry3d> poses_;
+
+    std::vector<std::shared_ptr<Surfel>> surfels_; // Vector of all the surfels. Indexes do NOT correspond to anything else
 
     // ROS
     ros::NodeHandle nh_;
