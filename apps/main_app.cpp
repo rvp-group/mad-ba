@@ -30,6 +30,7 @@
 #include <iostream>
 #include <vector>
 #include <ros/ros.h>
+#include <ros/package.h>
 
 using namespace srrg2_core;
 using namespace srrg2_core_ros;
@@ -51,7 +52,7 @@ int main(int argc, char** argv) {
     cmd.parse();
 
     // Find the dynamic libraries
-    const std::string dl_path = "/home/kcwian/Workspace/srrg2_source/src/structure_refinement/config/dl.conf";
+    const std::string dl_path = ros::package::getPath("structure_refinement") + "/config/dl.conf";
     ConfigurableManager::initFactory(dl_path);
 
     // Read the config file
