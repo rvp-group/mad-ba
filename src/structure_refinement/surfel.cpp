@@ -1,13 +1,10 @@
 #include "surfel.h"
-#include "json.hpp"
-using json = nlohmann::json;
 
 namespace structure_refinement {
 unsigned int Surfel::idCounter = 0;
 
 Surfel::Surfel() {
     id_ = idCounter++;
-    data = 32;
 }
 Surfel::~Surfel() {}
 bool Surfel::putMessage(srrg2_core::BaseSensorMessagePtr msg_) {
@@ -15,12 +12,6 @@ bool Surfel::putMessage(srrg2_core::BaseSensorMessagePtr msg_) {
 }
 
 void Surfel::addObservation(Eigen::Isometry3d& pose, unsigned int poseId, Eigen::Matrix<double, 9, 1>& observation) {
-    // poseId is to check if the same correspondence is not added two times
-    // if (posesId_.find(poseId) != posesId_.end())
-    //     return;
-    // else
-    //     posesId_.insert(poseId);
-    
     // Sometimes the same pose and observation might be added twice
     // It hapens when two surfels from cloud i have the same corresponding surfel in cloud j
     poses_.push_back(pose);
@@ -36,24 +27,31 @@ bool Surfel::checkIfsurfelIdExists(unsigned int poseId, unsigned int leafId) {
     }
     return false;
 }
-// using json = nlohmann::json;
 
-// void to_json(json& j, const Surfel& S) {
-//     j = json{{"Name", S.id_},
-//              {"Level", S.data}};
-// }
-// void from_json(const json& j, Surfel& S) {
-//     j.at("Name").get_to(S.id_);
-//     j.at("Level").get_to(S.data);
-// }
+nlohmann::json Surfel::getJson() {
+    // Create Json object
+    nlohmann::json j;
 
-    void to_json(json& j, const Surfel& p) {
-        j = json{{"name", p.id_}, {"address", p.data}};
+    // Add surfel id
+    j["id"] = id_;
+
+    // Add all poses
+    std::vector<std::vector<double>> posesVec;
+    for (auto& pose : poses_) {
+        std::vector<double> poseVec(pose.matrix().data(), pose.matrix().data() + pose.matrix().rows() * pose.matrix().cols());
+        posesVec.push_back(poseVec);
     }
+    j["poses"] = posesVec;
 
-    void from_json(const json& j, Surfel& p) {
-        j.at("name").get_to(p.id_);
-        j.at("address").get_to(p.data);
+    // Add all observations
+    std::vector<std::vector<double>> observsVec;
+    for (auto& observ : observations_) {
+        std::vector<double> observVec(observ.data(), observ.data() + observ.rows() * observ.cols());
+        observsVec.push_back(observVec);
     }
+    j["observations"] = observsVec;
+
+    return j;
+}
 
 }  // namespace structure_refinement

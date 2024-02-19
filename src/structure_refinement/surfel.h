@@ -25,9 +25,10 @@
 
 namespace structure_refinement {
 using namespace srrg2_core;
-using json = nlohmann::json;
 
 class Surfel : public srrg2_core::MessageSinkBase {
+    static unsigned int idCounter;
+
    public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     Surfel();
@@ -35,36 +36,9 @@ class Surfel : public srrg2_core::MessageSinkBase {
     bool putMessage(srrg2_core::BaseSensorMessagePtr msg) override;
     void addObservation(Eigen::Isometry3d&, unsigned int, Eigen::Matrix<double, 9, 1>&);  // Add new observation
     bool checkIfsurfelIdExists(unsigned int, unsigned int);                               // Checks whether such leafId was already associated
-    json getJson()
-    {
-        // Create Json object
-        json j;
-
-        // Add surfel id
-        j["id"] = id_;
-
-        // Add all poses
-        std::vector<std::vector<double>> posesVec;
-        for (auto& pose : poses_) {
-            std::vector<double> poseVec(pose.matrix().data(), pose.matrix().data() + pose.matrix().rows() * pose.matrix().cols());
-            posesVec.push_back(poseVec);
-        }
-        j["poses"] = posesVec;
-
-        // Add all observations
-        std::vector<std::vector<double>> observsVec;
-        for (auto& observ : observations_) {
-            std::vector<double> observVec(observ.data(), observ.data() + observ.rows() * observ.cols());
-            observsVec.push_back(observVec);
-        }
-        j["observations"] = observsVec;
-
-        // Eigen::Matrix3d mat = poses_.at(0).linear();
-        return j;
-    }
+    nlohmann::json getJson();
 
     //  protected:
-    static unsigned int idCounter;
 
     unsigned int id_;
     // double radius_;
@@ -75,15 +49,7 @@ class Surfel : public srrg2_core::MessageSinkBase {
     std::vector<Eigen::Isometry3d> poses_;                     // Poses from which the surfel was observed
     std::vector<Eigen::Matrix<double, 9, 1>> observations_;    // Observations from each pose: mean (3DOF), normal (3DOF), bbox (1DOF)
                                                                // std::vector<Eigen::Vector3d> points_;
-
-   public:
-    int data; // Test
-    // NLOHMANN_DEFINE_TYPE_INTRUSIVE(Surfel, data, id_, poses_) // 
 };
-
-
 using SurfelPtr = std::shared_ptr<Surfel>;
-
-
 
 }  // namespace structure_refinement

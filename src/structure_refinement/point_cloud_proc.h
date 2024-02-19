@@ -53,10 +53,10 @@ namespace structure_refinement {
     Eigen::Matrix3d matrixBetween2Vectors(Eigen::Vector3d, Eigen::Vector3d );
     double angleBetween2Vectors(const Eigen::Vector3d &, const Eigen::Vector3d &);
     void mergeSurfels();
-    void visualizeSurfel(TreeNodeTypePtr, int, int);  // ToDo: rename for leafs
+    void visualizeSurfel(TreeNodeTypePtr, int);  // ToDo: rename for leafs
     void visializeAllSurfels();
-    void visualizeMySurfels();
-    void visualizeSurfelWithMostPoses();
+    void visualizeSurfelPoses();
+    void visualizeCorrespondingSurfelsWithPoses();
     void saveSurfelsTofile();
 
     int findLeafId(unsigned int, TreeNodeTypePtr);  // Find the id of a leaf in a given kdTree

@@ -68,8 +68,8 @@ namespace structure_refinement {
           mergeSurfels();
           saveSurfelsTofile();
           exit(0);
-          visualizeMySurfels();
-          visualizeSurfelWithMostPoses();
+          visualizeSurfelPoses();
+          visualizeCorrespondingSurfelsWithPoses();
           ros::Duration(2.0).sleep();
           exit(0);
       }
@@ -102,19 +102,12 @@ namespace structure_refinement {
       return true;
   }
 
-  void PointCloudProc::visualizeSurfel(TreeNodeType* surfel, int markerColor, int type) {
+  void PointCloudProc::visualizeSurfel(TreeNodeType* surfel, int markerColor) {
       Eigen::Isometry3d surfelPose = Eigen::Isometry3d::Identity();
       surfelPose.translation() = Eigen::Vector3d(surfel->mean_);
       Eigen::Matrix3d rotMatrix = matrixBetween2Vectors(Eigen::Vector3d(1, 0, 0), surfel->eigenvectors_.col(0));
       surfelPose.linear() = rotMatrix;
-      switch (type) {
-          case 1:
-              visual_tools_->publishArrow(surfelPose, static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::XLARGE);
-              break;
-          case 2:
-              visual_tools_->publishArrow(surfelPose, static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::XLARGE);
-              break;
-      }
+      visual_tools_->publishArrow(surfelPose, static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::XLARGE);
       visual_tools_->trigger();
   }
 
@@ -145,13 +138,10 @@ namespace structure_refinement {
               visual_tools_->publishArrow(surfelPose, static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::XXXLARGE);
           }
       }
-      std::cout << "Number of poses: " << kdTreeLeafes_.size() << std::endl;
-      std::cout << "Number of surfels:  " << surfelCnt << std::endl;
-
       visual_tools_->trigger();
   }
 
-  void PointCloudProc::visualizeMySurfels() {
+  void PointCloudProc::visualizeSurfelPoses() {
       if (surfels_.size() == 0)
           return;
       // Take the first surfel
@@ -192,7 +182,7 @@ namespace structure_refinement {
       }
   }
 
-  void PointCloudProc::visualizeSurfelWithMostPoses() {
+  void PointCloudProc::visualizeCorrespondingSurfelsWithPoses() {
     std::cout << "Here 1a" << std::endl;
       unsigned int maxPoses = 0, idx = 0;
       for (unsigned int i = 0; i < surfels_.size(); i++) {
@@ -201,9 +191,8 @@ namespace structure_refinement {
               idx = i;
           }
       }
-
       std::cout << "Surfel with max poses: idx: " << idx << " Poses: " << surfels_.at(idx)->poses_.size() << std::endl;
-
+      
       geometry_msgs::PoseArray poseArray;
       poseArray.header.stamp = ros::Time::now();
       poseArray.header.frame_id = "map";
@@ -231,11 +220,11 @@ namespace structure_refinement {
           markerColor++;
           // Debug all correspondences:
           for (auto const& poseId : surfels_.at(i)->posesIds_) {
-              //   std::cout << "PoseId: " << poseId.first << std::endl;
+              //   Visuzalize surfels with poses num > maxPoses/2
               if (surfels_.at(i)->poses_.size() > maxPoses/2 ) {
                   for (auto const& surfelId : poseId.second) {
                       TreeNodeType* leaf = kdTreeLeafes_[poseId.first].at(surfelId);
-                      visualizeSurfel(leaf, markerColor % 14, 1);
+                      visualizeSurfel(leaf, markerColor % 14);
                   }
               }
           }
@@ -247,16 +236,14 @@ namespace structure_refinement {
       std::sort(surfels_.begin(), surfels_.end(), [](const std::shared_ptr<Surfel>& a, const std::shared_ptr<Surfel>& b) {
           return a->poses_.size() < b->poses_.size();
       });
-      Surfel newSurfel;
-      auto jsonObjects = json::array();
+      // Add all surfels as json object
+      auto jsonArray = nlohmann::json::array();
       for(unsigned int i = 0; i <= surfels_.size(); ++i) {
-          jsonObjects.push_back(surfels_.at(i)->getJson());
+          jsonArray.push_back(surfels_.at(i)->getJson());
       }
-
+      // Save to file
       std::ofstream o("pretty.json");
-    //   nlohmann::json j(newSurfel);
-    //   newSurfel.to_json(j,newSurfel);  //{{"Jaas", newSurfel}};
-      o << std::setw(4) << jsonObjects << std::endl;
+      o << std::setw(4) << jsonArray << std::endl;
   }
 
   void PointCloudProc::mergeSurfels() {
@@ -292,8 +279,8 @@ namespace structure_refinement {
                       double angle = angleBetween2Vectors(leafI->eigenvectors_.col(0), leafJ->eigenvectors_.col(0));
                       if (angle < maxAngle) {
                           // Visualize the surfels for merge
-                        //   visualizeSurfel(leafI, markerColor % 14, 1);
-                        //   visualizeSurfel(leafJ, markerColor % 14, 2);
+                        //   visualizeSurfel(leafI, markerColor % 14);
+                        //   visualizeSurfel(leafJ, markerColor % 14);
                         //   markerColor++;
                           matchedSurfels++;
 
