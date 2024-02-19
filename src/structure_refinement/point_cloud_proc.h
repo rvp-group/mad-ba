@@ -28,6 +28,8 @@
 #include <rviz_visual_tools/rviz_visual_tools.h>
 #include "kdtree.hpp"
 #include "surfel.h"
+#include "json.hpp"
+
 
 namespace structure_refinement {
   using namespace srrg2_core;
@@ -51,8 +53,12 @@ namespace structure_refinement {
     Eigen::Matrix3d matrixBetween2Vectors(Eigen::Vector3d, Eigen::Vector3d );
     double angleBetween2Vectors(const Eigen::Vector3d &, const Eigen::Vector3d &);
     void mergeSurfels();
-    void visualizeSurfel(TreeNodeTypePtr, int, int);
+    void visualizeSurfel(TreeNodeTypePtr, int, int);  // ToDo: rename for leafs
     void visializeAllSurfels();
+    void visualizeMySurfels();
+    void visualizeSurfelWithMostPoses();
+    void saveSurfelsTofile();
+
     int findLeafId(unsigned int, TreeNodeTypePtr);  // Find the id of a leaf in a given kdTree
 
    protected:
@@ -79,6 +85,7 @@ namespace structure_refinement {
     ros::NodeHandle nh_;
     ros::Publisher pointCloudPub_; // Raw point clouds publisher
     ros::Publisher odomPub_; // Odometry from .bag file publisher
+    ros::Publisher poseArrayPub_;
     tf2_ros::TransformBroadcaster transformBroadcaster_;
 
     // Rviz Visualization Tools

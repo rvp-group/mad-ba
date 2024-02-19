@@ -31,6 +31,7 @@ namespace structure_refinement {
       // ROS publishers
       pointCloudPub_ = nh_.advertise<sensor_msgs::PointCloud2>("raw_point_cloud", 100);
       odomPub_ = nh_.advertise<nav_msgs::Odometry>("ba_estimate", 100);
+      poseArrayPub_ = nh_.advertise<geometry_msgs::PoseArray>("surfel_pose_array", 100);
 
       // Initalize rviz visual tools
       visual_tools_.reset(new rviz_visual_tools::RvizVisualTools("map", "rviz_visual_markers"));
@@ -62,8 +63,14 @@ namespace structure_refinement {
           // Publish results before exit
           //   publishCloudNormals(0);                         // First normals
           //   publishCloudNormals(kdTreeLeafes_.size() - 1);  // Last normals
+          
+          
           mergeSurfels();
-          ros::Duration(5.0).sleep();
+          saveSurfelsTofile();
+          exit(0);
+          visualizeMySurfels();
+          visualizeSurfelWithMostPoses();
+          ros::Duration(2.0).sleep();
           exit(0);
       }
 
@@ -144,6 +151,114 @@ namespace structure_refinement {
       visual_tools_->trigger();
   }
 
+  void PointCloudProc::visualizeMySurfels() {
+      if (surfels_.size() == 0)
+          return;
+      // Take the first surfel
+      for (const std::shared_ptr<Surfel>& surfel : surfels_) {
+        //   if (surfel->poses_.size() < 5)
+        //       continue;
+          // Create pose array message
+          geometry_msgs::PoseArray poseArray;
+          poseArray.header.stamp = ros::Time::now();
+          poseArray.header.frame_id = "map";
+
+          // Add all poses for given surfel
+          for (const Eigen::Isometry3d& pose : surfel->poses_) {
+              // Create new pose Msg
+              geometry_msgs::Pose poseMsg;
+              poseMsg.position.x = pose.translation().x();
+              poseMsg.position.y = pose.translation().y();
+              poseMsg.position.z = pose.translation().z();
+              // Add orientation
+              Eigen::Quaterniond quat(pose.linear());
+              poseMsg.orientation.x = quat.x();
+              poseMsg.orientation.y = quat.y();
+              poseMsg.orientation.z = quat.z();
+              poseMsg.orientation.w = quat.w();
+              // Add pose to poseArray
+              poseArray.poses.push_back(poseMsg);
+            //   std::cout << "Poses " << pose.matrix() << std::endl;
+          }
+          poseArrayPub_.publish(poseArray);
+        //   std::cout << "Poses " <<  surfel->poses_.size() << std::endl;
+          // Debug all correspondences:
+        //   for (auto const& poseId : surfel->posesIds_) {
+        //       std::cout << "PoseId: " << poseId.first << std::endl;
+        //       for (auto const& surfelId : poseId.second) {
+        //         std::cout << "Surfel Id " << surfelId << std::endl;
+        //       }
+        //   }
+      }
+  }
+
+  void PointCloudProc::visualizeSurfelWithMostPoses() {
+    std::cout << "Here 1a" << std::endl;
+      unsigned int maxPoses = 0, idx = 0;
+      for (unsigned int i = 0; i < surfels_.size(); i++) {
+          if (surfels_.at(i)->poses_.size() > maxPoses) {
+              maxPoses = surfels_.at(i)->poses_.size();
+              idx = i;
+          }
+      }
+
+      std::cout << "Surfel with max poses: idx: " << idx << " Poses: " << surfels_.at(idx)->poses_.size() << std::endl;
+
+      geometry_msgs::PoseArray poseArray;
+      poseArray.header.stamp = ros::Time::now();
+      poseArray.header.frame_id = "map";
+
+      // Add all poses for given surfel
+      for (unsigned int i = 0; i < surfels_.size(); i++) {
+          for (const Eigen::Isometry3d& pose : surfels_.at(i)->poses_) {
+              // Create new pose Msg
+              geometry_msgs::Pose poseMsg;
+              poseMsg.position.x = pose.translation().x();
+              poseMsg.position.y = pose.translation().y();
+              poseMsg.position.z = pose.translation().z();
+              // Add orientation
+              Eigen::Quaterniond quat(pose.linear());
+              poseMsg.orientation.x = quat.x();
+              poseMsg.orientation.y = quat.y();
+              poseMsg.orientation.z = quat.z();
+              poseMsg.orientation.w = quat.w();
+              // Add pose to poseArray
+              poseArray.poses.push_back(poseMsg);
+          }
+          // Publish poses array
+          poseArrayPub_.publish(poseArray);
+          static int markerColor = 4;
+          markerColor++;
+          // Debug all correspondences:
+          for (auto const& poseId : surfels_.at(i)->posesIds_) {
+              //   std::cout << "PoseId: " << poseId.first << std::endl;
+              if (surfels_.at(i)->poses_.size() > maxPoses/2 ) {
+                  for (auto const& surfelId : poseId.second) {
+                      TreeNodeType* leaf = kdTreeLeafes_[poseId.first].at(surfelId);
+                      visualizeSurfel(leaf, markerColor % 14, 1);
+                  }
+              }
+          }
+      }
+  }
+
+  void PointCloudProc::saveSurfelsTofile() {
+      // Sort the surfels based on number of surfels its created from
+      std::sort(surfels_.begin(), surfels_.end(), [](const std::shared_ptr<Surfel>& a, const std::shared_ptr<Surfel>& b) {
+          return a->poses_.size() < b->poses_.size();
+      });
+      Surfel newSurfel;
+      auto jsonObjects = json::array();
+      for(unsigned int i = 0; i <= surfels_.size(); ++i) {
+          jsonObjects.push_back(surfels_.at(i)->getJson());
+      }
+
+      std::ofstream o("pretty.json");
+    //   nlohmann::json j(newSurfel);
+    //   newSurfel.to_json(j,newSurfel);  //{{"Jaas", newSurfel}};
+      o << std::setw(4) << jsonObjects << std::endl;
+  }
+
   void PointCloudProc::mergeSurfels() {
 
       // Parameters for merging
@@ -169,6 +284,7 @@ namespace structure_refinement {
                   // Get pointer to a surfelB
                   TreeNodeType* leafI = kdTreeLeafes_[i].at(idLeafI);
                   TreeNodeType* leafJ = kdTrees_.at(j)->bestMatchingLeafFast(leafI->mean_);
+                //   std::cout << "Mean of the leaf:  "<< leafI->mean_ << std::endl;
                   //   std::cout << "SurfelB size:  "  << surfelB->num_points_ << std::endl;
                   //   auto& surfelB = (kdTrees_.at(j))->bestMatchingLeafFast(surfelA->mean_);
                   double distance = (leafJ->mean_ - leafI->mean_).norm();
@@ -176,9 +292,9 @@ namespace structure_refinement {
                       double angle = angleBetween2Vectors(leafI->eigenvectors_.col(0), leafJ->eigenvectors_.col(0));
                       if (angle < maxAngle) {
                           // Visualize the surfels for merge
-                          visualizeSurfel(leafI, markerColor % 14, 1);
-                          visualizeSurfel(leafJ, markerColor % 14, 2);
-                          markerColor++;
+                        //   visualizeSurfel(leafI, markerColor % 14, 1);
+                        //   visualizeSurfel(leafJ, markerColor % 14, 2);
+                        //   markerColor++;
                           matchedSurfels++;
 
                           // Need to find the leafJid in the vector anyway:
