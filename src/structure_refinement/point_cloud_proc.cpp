@@ -59,16 +59,15 @@ namespace structure_refinement {
       // Skip first n messages
       if (++msgCnt < 3 * 100)
           return true;
-      else if (msgCnt > 3 * 120) {
+      else if (msgCnt > 3 * 110) {
           // Publish results before exit
           //   publishCloudNormals(0);                         // First normals
           //   publishCloudNormals(kdTreeLeafes_.size() - 1);  // Last normals
           
           
           mergeSurfels();
-          saveSurfelsTofile();
-          exit(0);
-          visualizeSurfelPoses();
+        //   saveSurfelsTofile();
+        //   visualizeSurfelPoses();
           visualizeCorrespondingSurfelsWithPoses();
           ros::Duration(2.0).sleep();
           exit(0);
@@ -107,7 +106,7 @@ namespace structure_refinement {
       surfelPose.translation() = Eigen::Vector3d(surfel->mean_);
       Eigen::Matrix3d rotMatrix = matrixBetween2Vectors(Eigen::Vector3d(1, 0, 0), surfel->eigenvectors_.col(0));
       surfelPose.linear() = rotMatrix;
-      visual_tools_->publishArrow(surfelPose, static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::XLARGE);
+      visual_tools_->publishArrow(surfelPose, static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::SMALL);
       visual_tools_->trigger();
   }
 
@@ -171,19 +170,11 @@ namespace structure_refinement {
             //   std::cout << "Poses " << pose.matrix() << std::endl;
           }
           poseArrayPub_.publish(poseArray);
-        //   std::cout << "Poses " <<  surfel->poses_.size() << std::endl;
-          // Debug all correspondences:
-        //   for (auto const& poseId : surfel->posesIds_) {
-        //       std::cout << "PoseId: " << poseId.first << std::endl;
-        //       for (auto const& surfelId : poseId.second) {
-        //         std::cout << "Surfel Id " << surfelId << std::endl;
-        //       }
-        //   }
       }
   }
 
   void PointCloudProc::visualizeCorrespondingSurfelsWithPoses() {
-    std::cout << "Here 1a" << std::endl;
+
       unsigned int maxPoses = 0, idx = 0;
       for (unsigned int i = 0; i < surfels_.size(); i++) {
           if (surfels_.at(i)->poses_.size() > maxPoses) {
@@ -191,13 +182,11 @@ namespace structure_refinement {
               idx = i;
           }
       }
-      std::cout << "Surfel with max poses: idx: " << idx << " Poses: " << surfels_.at(idx)->poses_.size() << std::endl;
-      
+
+      // Add all poses for given surfel
       geometry_msgs::PoseArray poseArray;
       poseArray.header.stamp = ros::Time::now();
       poseArray.header.frame_id = "map";
-
-      // Add all poses for given surfel
       for (unsigned int i = 0; i < surfels_.size(); i++) {
           for (const Eigen::Isometry3d& pose : surfels_.at(i)->poses_) {
               // Create new pose Msg
@@ -218,13 +207,19 @@ namespace structure_refinement {
           poseArrayPub_.publish(poseArray);
           static int markerColor = 4;
           markerColor++;
-          // Debug all correspondences:
+          // Show all correspondences in one color
           for (auto const& poseId : surfels_.at(i)->posesIds_) {
               //   Visuzalize surfels with poses num > maxPoses/2
-              if (surfels_.at(i)->poses_.size() > maxPoses/2 ) {
+
+              if (surfels_.at(i)->poses_.size() == 3) {
+                  static int visCnt = 0;
+                  if (visCnt++ > 500)
+                      break;
                   for (auto const& surfelId : poseId.second) {
                       TreeNodeType* leaf = kdTreeLeafes_[poseId.first].at(surfelId);
                       visualizeSurfel(leaf, markerColor % 14);
+                      Eigen::Isometry3d trans = poses_.at(poseId.first);
+                      visual_tools_->publishLine(trans.translation(), leaf->mean_, static_cast<rviz_visual_tools::colors>(markerColor % 14));
                   }
               }
           }
@@ -238,12 +233,12 @@ namespace structure_refinement {
       });
       // Add all surfels as json object
       auto jsonArray = nlohmann::json::array();
-      for(unsigned int i = 0; i <= surfels_.size(); ++i) {
+      for(unsigned int i = 0; i < surfels_.size(); ++i) {
           jsonArray.push_back(surfels_.at(i)->getJson());
       }
       // Save to file
       std::ofstream o("pretty.json");
-      o << std::setw(4) << jsonArray << std::endl;
+      o << std::setw(4) << jsonArray.dump() << std::endl;
   }
 
   void PointCloudProc::mergeSurfels() {

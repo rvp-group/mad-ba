@@ -47,7 +47,7 @@ class Surfel : public srrg2_core::MessageSinkBase {
     std::map<unsigned int, std::set<unsigned int>> posesIds_;  // Corresponding id's of surfels in given poses | PoseId -> SurfelId its (id in kdTree vector)
                                                                // It is used for matching other leafs from other kdTrees
     std::vector<Eigen::Isometry3d> poses_;                     // Poses from which the surfel was observed
-    std::vector<Eigen::Matrix<double, 9, 1>> observations_;    // Observations from each pose: mean (3DOF), normal (3DOF), bbox (1DOF)
+    std::vector<Eigen::Matrix<double, 9, 1>> observations_;    // Observations from each pose: mean (3DOF), normal (3DOF), bbox (3DOF)
                                                                // std::vector<Eigen::Vector3d> points_;
 };
 using SurfelPtr = std::shared_ptr<Surfel>;
