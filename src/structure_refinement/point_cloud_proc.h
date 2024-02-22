@@ -27,6 +27,7 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <rviz_visual_tools/rviz_visual_tools.h>
 #include "kdtree.hpp"
+#include <random>
 #include "surfel.h"
 #include "json.hpp"
 

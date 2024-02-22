@@ -59,10 +59,10 @@ namespace structure_refinement {
       // Skip first n messages
       if (++msgCnt < 3 * 100)
           return true;
-      else if (msgCnt > 3 * 110) {
+      else if (msgCnt > 3 * 103) {
           // Publish results before exit
-          //   publishCloudNormals(0);                         // First normals
-          //   publishCloudNormals(kdTreeLeafes_.size() - 1);  // Last normals
+            // publishCloudNormals(0);                         // First normals
+            // publishCloudNormals(kdTreeLeafes_.size() - 1);  // Last normals
           
           
           mergeSurfels();
@@ -102,11 +102,43 @@ namespace structure_refinement {
   }
 
   void PointCloudProc::visualizeSurfel(TreeNodeType* surfel, int markerColor) {
+
       Eigen::Isometry3d surfelPose = Eigen::Isometry3d::Identity();
       surfelPose.translation() = Eigen::Vector3d(surfel->mean_);
-      Eigen::Matrix3d rotMatrix = matrixBetween2Vectors(Eigen::Vector3d(1, 0, 0), surfel->eigenvectors_.col(0));
-      surfelPose.linear() = rotMatrix;
+      // Works even for surfels that have only 1 point (they have only the first column of egigenvector matrix)
+      surfelPose.linear() = matrixBetween2Vectors(Eigen::Vector3d(1, 0, 0), surfel->eigenvectors_.col(0));
+      // Get the surfel bounding box
+      Eigen::Vector3d bbox = surfel->bbox_;
+      for (int i = 0; i < 3; i++)
+          if (bbox[i] < 0.01)
+              bbox[i] = 0.01;
+
+        // Publish normal as Arrow
       visual_tools_->publishArrow(surfelPose, static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::SMALL);
+
+        // Publish surfel as Cylinder
+        // Get the rotation matrix for 90* in Y axis
+        Eigen::Matrix3d rotationY;
+        rotationY << 0, 0, 1, 0, 1, 0, -1, 0, 0;
+        surfelPose.linear() = surfelPose.linear() * rotationY;
+        double radius = (bbox[1] + bbox[2]) / 2.0;
+        visual_tools_->publishCylinder(surfelPose, static_cast<rviz_visual_tools::colors>(markerColor), bbox[0], radius);
+        
+        // Check if eigenvectors contains NaNs
+        if (surfel->eigenvectors_ == surfel->eigenvectors_) {
+            Eigen::Vector3d deltaX = surfel->eigenvectors_.col(0) * bbox[0];
+            Eigen::Vector3d deltaY = surfel->eigenvectors_.col(1) * bbox[1];
+            Eigen::Vector3d deltaZ = surfel->eigenvectors_.col(2) * bbox[2];
+
+            // Publish the bound box diagonals
+            visual_tools_->publishLine(surfel->mean_ - deltaX / 2.0, surfel->mean_ + deltaX / 2.0, static_cast<rviz_visual_tools::colors>(markerColor % 14));
+            visual_tools_->publishLine(surfel->mean_ - deltaY / 2.0, surfel->mean_ + deltaY / 2.0, static_cast<rviz_visual_tools::colors>(markerColor % 14));
+            visual_tools_->publishLine(surfel->mean_ - deltaZ / 2.0, surfel->mean_ + deltaZ / 2.0, static_cast<rviz_visual_tools::colors>(markerColor % 14));
+
+            // Publish surfel as rectangle
+            surfelPose.linear() = surfel->eigenvectors_ * rotationY;
+            visual_tools_->publishWireframeRectangle(surfelPose, bbox[1], bbox[2], static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::XLARGE);
+        }
       visual_tools_->trigger();
   }
 
@@ -211,13 +243,16 @@ namespace structure_refinement {
           for (auto const& poseId : surfels_.at(i)->posesIds_) {
               //   Visuzalize surfels with poses num > maxPoses/2
 
-              if (surfels_.at(i)->poses_.size() == 3) {
+            //   if (surfels_.at(i)->poses_.size() == 3)
+              {
                   static int visCnt = 0;
                   if (visCnt++ > 500)
                       break;
                   for (auto const& surfelId : poseId.second) {
                       TreeNodeType* leaf = kdTreeLeafes_[poseId.first].at(surfelId);
                       visualizeSurfel(leaf, markerColor % 14);
+
+                      // Add line between pose and surfel
                       Eigen::Isometry3d trans = poses_.at(poseId.first);
                       visual_tools_->publishLine(trans.translation(), leaf->mean_, static_cast<rviz_visual_tools::colors>(markerColor % 14));
                   }
@@ -472,7 +507,7 @@ namespace structure_refinement {
       Eigen::Isometry3d pose = Eigen::Isometry3d::Identity();
       for (auto& leaf : kdTreeLeafes_.at(idx)) {
           // Decimate for Rviz
-          if (static int cnt; cnt++ % decimation != 0)
+          if (static int cnt = 0; cnt++ % decimation != 0)
               continue;
           // Set the translation part
           pose.translation() = Eigen::Vector3d(leaf->mean_);
