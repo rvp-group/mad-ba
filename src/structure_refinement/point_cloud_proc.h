@@ -25,6 +25,7 @@
 #include <vector>
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
+#include <sensor_msgs/point_cloud2_iterator.h>
 #include <rviz_visual_tools/rviz_visual_tools.h>
 #include "kdtree.hpp"
 #include <random>
@@ -61,6 +62,7 @@ namespace structure_refinement {
     void saveSurfelsTofile();
 
     int findLeafId(unsigned int, TreeNodeTypePtr);  // Find the id of a leaf in a given kdTree
+    void generateSyntheticPointCloud(sensor_msgs::PointCloud2 &);
 
    protected:
     using PointUnprojectorBase = srrg2_core::PointUnprojectorBase_<srrg2_core::PointNormalIntensity3fVectorCloud>;
@@ -85,6 +87,8 @@ namespace structure_refinement {
     // ROS
     ros::NodeHandle nh_;
     ros::Publisher pointCloudPub_; // Raw point clouds publisher
+    ros::Publisher synthPointCloudPub_;  // Synthetic point clouds publisher
+
     ros::Publisher odomPub_; // Odometry from .bag file publisher
     ros::Publisher poseArrayPub_;
     tf2_ros::TransformBroadcaster transformBroadcaster_;

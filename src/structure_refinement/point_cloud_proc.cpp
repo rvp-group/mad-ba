@@ -30,6 +30,7 @@ namespace structure_refinement {
 
       // ROS publishers
       pointCloudPub_ = nh_.advertise<sensor_msgs::PointCloud2>("raw_point_cloud", 100);
+      synthPointCloudPub_ = nh_.advertise<sensor_msgs::PointCloud2>("synth_point_cloud", 100);
       odomPub_ = nh_.advertise<nav_msgs::Odometry>("ba_estimate", 100);
       poseArrayPub_ = nh_.advertise<geometry_msgs::PoseArray>("surfel_pose_array", 100);
 
@@ -54,55 +55,66 @@ namespace structure_refinement {
   }
 
   bool PointCloudProc::putMessage(srrg2_core::BaseSensorMessagePtr msg) {
-      // Process only n-th first clouds - RAM memory is a limit
+      
+      // Whether to use synthetic data
+      bool useSynthethicData = false;
+
+      // Skip first n messages and process only m first clouds
+      uint cloudsToSkip = 100;
+      uint cloudsToProcess = 2;
       static int msgCnt = -1;
-      // Skip first n messages
-      if (++msgCnt < 3 * 100)
+      if (++msgCnt < 3 * cloudsToSkip)
           return true;
-      else if (msgCnt > 3 * 103) {
+      else if (msgCnt > 3 * (cloudsToSkip + cloudsToProcess)) {
           // Publish results before exit
-            // publishCloudNormals(0);                         // First normals
-            // publishCloudNormals(kdTreeLeafes_.size() - 1);  // Last normals
-          
-          
+          // publishCloudNormals(0);                         // First normals
+          // publishCloudNormals(kdTreeLeafes_.size() - 1);  // Last normals
           mergeSurfels();
-        //   saveSurfelsTofile();
-        //   visualizeSurfelPoses();
           visualizeCorrespondingSurfelsWithPoses();
           ros::Duration(2.0).sleep();
           exit(0);
       }
 
-      // Let's assume that for each point cloud in a .bag file there is one odometry pose
-      // Try to convert the message to srrg2 point cloud
-      if (PointCloud2MessagePtr cloud = std::dynamic_pointer_cast<PointCloud2Message>(msg)) {
-          static int cloudMsgCnt = 0;
-          std::cout << std::setprecision(12) << "Point cloud message no." << cloudMsgCnt++ << " Ts: " << cloud->timestamp.value() << std::endl;
-          handleCloudMessage(cloud);
-      }
-      // Try to convert the message to srrg2 odometry
-      else if (OdometryMessagePtr odom = std::dynamic_pointer_cast<OdometryMessage>(msg)) {
-          static int odomMsgCnt = 0;
-          std::cout << std::setprecision(12) << "Odometry message no." << odomMsgCnt++ << " Ts: " << odom->timestamp.value() << std::endl;
-          handleOdometryMessage(odom);
-      }
-      // Try to convert the message to srrg2 odometry
-      else if (TransformEventsMessagePtr tfMsg = std::dynamic_pointer_cast<TransformEventsMessage>(msg)) {
-          static int tfMsgCnt = 0;
-          std::cout << std::setprecision(12) << "Transform message no." << tfMsgCnt++ << " Ts: " << tfMsg->timestamp.value() << std::endl;
-          handleTFMessage(tfMsg);
-      }
-      // Other messages types
-      else {
-          std::cerr << "PointCloudProc::putMessage | no handler for the received message type " << std::endl;
-          return false;
+      // Replace real data with synthetic one
+      if (useSynthethicData) {
+          sensor_msgs::PointCloud2 cloudMsgSynthetic;
+          generateSyntheticPointCloud(cloudMsgSynthetic);
+
+          // Replace real cloud with synthetic one
+        //   sensor_msgs::PointCloud2ConstPtr rosMsg = Converter::convert(cloud);
+        //   ros::Duration(2.0).sleep();
+        //   exit(0);
+      } else {
+          // Let's assume that for each point cloud in a .bag file there is one odometry pose
+          // Try to convert the message to srrg2 point cloud
+          if (PointCloud2MessagePtr cloud = std::dynamic_pointer_cast<PointCloud2Message>(msg)) {
+              static int cloudMsgCnt = 0;
+              std::cout << std::setprecision(12) << "Point cloud message no." << cloudMsgCnt++ << " Ts: " << cloud->timestamp.value() << std::endl;
+              handleCloudMessage(cloud);
+          }
+          // Try to convert the message to srrg2 odometry
+          else if (OdometryMessagePtr odom = std::dynamic_pointer_cast<OdometryMessage>(msg)) {
+              static int odomMsgCnt = 0;
+              std::cout << std::setprecision(12) << "Odometry message no." << odomMsgCnt++ << " Ts: " << odom->timestamp.value() << std::endl;
+              handleOdometryMessage(odom);
+          }
+          // Try to convert the message to srrg2 odometry
+          else if (TransformEventsMessagePtr tfMsg = std::dynamic_pointer_cast<TransformEventsMessage>(msg)) {
+              static int tfMsgCnt = 0;
+              std::cout << std::setprecision(12) << "Transform message no." << tfMsgCnt++ << " Ts: " << tfMsg->timestamp.value() << std::endl;
+              handleTFMessage(tfMsg);
+          }
+          // Other messages types
+          else {
+              std::cerr << "PointCloudProc::putMessage | no handler for the received message type " << std::endl;
+              return false;
+          }
       }
 
       return true;
   }
 
   void PointCloudProc::visualizeSurfel(TreeNodeType* surfel, int markerColor) {
-
       Eigen::Isometry3d surfelPose = Eigen::Isometry3d::Identity();
       surfelPose.translation() = Eigen::Vector3d(surfel->mean_);
       // Works even for surfels that have only 1 point (they have only the first column of egigenvector matrix)
@@ -143,7 +155,6 @@ namespace structure_refinement {
   }
 
   void PointCloudProc::visializeAllSurfels() {
-      
       Eigen::Isometry3d surfelPose = Eigen::Isometry3d::Identity();
       uint8_t markerColor = 0;
       long surfelCnt = 0; 
@@ -242,8 +253,7 @@ namespace structure_refinement {
           // Show all correspondences in one color
           for (auto const& poseId : surfels_.at(i)->posesIds_) {
               //   Visuzalize surfels with poses num > maxPoses/2
-
-            //   if (surfels_.at(i)->poses_.size() == 3)
+              //   if (surfels_.at(i)->poses_.size() == 3)
               {
                   static int visCnt = 0;
                   if (visCnt++ > 500)
@@ -551,6 +561,103 @@ namespace structure_refinement {
       kdTreeLeafes_.push_back(std::move(leafes));
       // Pass kdTree to a vector for storage
       kdTrees_.push_back(std::move(kdTree));
+  }
+
+  void PointCloudProc::generateSyntheticPointCloud(sensor_msgs::PointCloud2 & cloudMsg) {
+      
+      static std::random_device rd;                           // obtain a random number from hardware
+      static std::mt19937 gen(rd());                          // seed the generator
+      static std::uniform_int_distribution<> distrX(1, 300);  //  // define the range
+      static std::uniform_int_distribution<> distrY(1, 200);  //  // define the range
+      static std::uniform_int_distribution<> distrZ(1, 20);   //  // define the range
+
+      // Synthethic cloud
+      std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>> pointCloudSynth;
+
+      // Room dimensons
+      double width = 10, depth = 15, height = 5;
+      double pointsDensity = 10;  // Pts per meter
+      Eigen::Vector3d point;
+      // Generate floor
+      for (int i = 0; i <= width * pointsDensity; i++) {
+          for (int j = 0; j <= depth * pointsDensity; j++) {
+              pointCloudSynth.push_back(Eigen::Vector3d(i / pointsDensity, j / pointsDensity, 0));
+          }
+      }
+      // Generate front and back walls
+      for (int i = 0; i <= width * pointsDensity; i++) {
+          for (int j = 1; j < height * pointsDensity; j++) {
+              pointCloudSynth.push_back(Eigen::Vector3d(i / pointsDensity, 0, j / pointsDensity));
+              pointCloudSynth.push_back(Eigen::Vector3d(i / pointsDensity, depth, j / pointsDensity));
+          }
+      }
+
+      // Generate left and right walls
+      for (int i = 1; i < depth * pointsDensity; i++) {
+          for (int j = 1; j < height * pointsDensity; j++) {
+              pointCloudSynth.push_back(Eigen::Vector3d(0, i / pointsDensity, j / pointsDensity));
+              pointCloudSynth.push_back(Eigen::Vector3d(width, i / pointsDensity, j / pointsDensity));
+          }
+      }
+
+      cloudMsg.header.frame_id = "map";
+      cloudMsg.header.stamp = ros::Time::now();
+      cloudMsg.height = 1;
+      cloudMsg.width  = pointCloudSynth.size();
+      std::cout << "Num of points:  " << pointCloudSynth.size()  << "  Synth Cloud size:  "  << cloudMsg.height * cloudMsg.width << std::endl;
+      
+      //   sensor_msgs::PointField fieldX, fieldY,  fieldZ;
+      //   fieldX.name = "x";
+      //   fieldX.offset = 0;
+      //   fieldX.datatype = 7;
+      //   fieldX.count = 1;
+      //   fieldY.name = "y";
+      //   fieldY.offset = 4;
+      //   fieldY.datatype = 7;
+      //   fieldY.count = 1;
+      //   fieldZ.name = "z";
+      //   fieldZ.offset = 8;
+      //   fieldZ.datatype = 7;
+      //   fieldZ.count = 1;
+      //   cloudMsg.fields.push_back(fieldX);
+      //   cloudMsg.fields.push_back(fieldY);
+      //   cloudMsg.fields.push_back(fieldZ);
+      cloudMsg.is_bigendian = false;
+      //   cloudMsg.point_step = 12;
+      //   cloudMsg.row_step = cloudMsg.width * cloudMsg.point_step;
+      cloudMsg.is_dense = true;
+      // Create the modifier to setup the fields and memory
+      sensor_msgs::PointCloud2Modifier cloudModifier(cloudMsg);
+      // Set the fields that our cloud will have
+      cloudModifier.setPointCloud2FieldsByString(1, "xyz");
+
+      // Create iterators
+      sensor_msgs::PointCloud2Iterator<float> iterX(cloudMsg, "x");
+      sensor_msgs::PointCloud2Iterator<float> iterY(cloudMsg, "y");
+      sensor_msgs::PointCloud2Iterator<float> iterZ(cloudMsg, "z");
+      for (auto& point : pointCloudSynth) {
+          //   for (; iterX != iterX.end(); ++iterX, ++iterY, ++iterZ)
+          if (iterX != iterX.end()) {
+              Eigen::Vector3f point3f = point.cast<float>();
+              *iterX = point3f[0];
+              *iterY = point3f[1];
+              *iterZ = point3f[2];
+              ++iterX;
+              ++iterY;
+              ++iterZ;
+          } else
+              break;
+      }
+      synthPointCloudPub_.publish(cloudMsg);
+
+      //   for (int i = 0; i < 200; i++) {
+      //       Eigen::Vector3d point = Eigen::Vector3d(distrX(gen) / 1e3, distrY(gen) / 1e3, distrZ(gen) / 1e3);
+      //       // transform the point
+      //     //   point = poses_.back() * point;
+      //       pointCloudSynth.push_back(point);
+      //   }
+      visual_tools_->publishSpheres(pointCloudSynth, static_cast<rviz_visual_tools::colors>(9), rviz_visual_tools::SMALL);
+      visual_tools_->trigger();
   }
 
   // Just for test
