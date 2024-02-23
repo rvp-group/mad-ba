@@ -63,6 +63,7 @@ namespace structure_refinement {
 
     int findLeafId(unsigned int, TreeNodeTypePtr);  // Find the id of a leaf in a given kdTree
     void generateSyntheticPointCloud(sensor_msgs::PointCloud2 &);
+    void generateSyntheticOdometry(nav_msgs::Odometry &);
 
    protected:
     using PointUnprojectorBase = srrg2_core::PointUnprojectorBase_<srrg2_core::PointNormalIntensity3fVectorCloud>;

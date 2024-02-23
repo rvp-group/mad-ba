@@ -57,33 +57,43 @@ namespace structure_refinement {
   bool PointCloudProc::putMessage(srrg2_core::BaseSensorMessagePtr msg) {
       
       // Whether to use synthetic data
-      bool useSynthethicData = false;
+      bool useSynthethicData = true;
 
       // Skip first n messages and process only m first clouds
       uint cloudsToSkip = 100;
       uint cloudsToProcess = 2;
       static int msgCnt = -1;
-      if (++msgCnt < 3 * cloudsToSkip)
+      if (++msgCnt < 2 * cloudsToSkip)
           return true;
-      else if (msgCnt > 3 * (cloudsToSkip + cloudsToProcess)) {
+      else if (msgCnt > 2 * (cloudsToSkip + cloudsToProcess)) {
           // Publish results before exit
-          // publishCloudNormals(0);                         // First normals
-          // publishCloudNormals(kdTreeLeafes_.size() - 1);  // Last normals
           mergeSurfels();
           visualizeCorrespondingSurfelsWithPoses();
           ros::Duration(2.0).sleep();
           exit(0);
       }
 
-      // Replace real data with synthetic one
       if (useSynthethicData) {
-          sensor_msgs::PointCloud2 cloudMsgSynthetic;
-          generateSyntheticPointCloud(cloudMsgSynthetic);
+          // Simulate pose, cloud, pose, cloud messages
+          static bool msgType = 0;
+          msgType ^= 1;
+          if (msgType) {
+              static int odomMsgCnt = 0;
+              std::cout << "Synthetic odometry msg no. " << odomMsgCnt++ << std::endl;
+              nav_msgs::OdometryPtr odomMsgSynthPtr(new nav_msgs::Odometry());
+              generateSyntheticOdometry(*odomMsgSynthPtr);
+              // Pointless but convert it to srrg odom, so that it can be processed the same way and converted back
+              OdometryMessagePtr odomSrrg = std::dynamic_pointer_cast<OdometryMessage>(Converter::convert(odomMsgSynthPtr));
+              handleOdometryMessage(odomSrrg);
 
-          // Replace real cloud with synthetic one
-        //   sensor_msgs::PointCloud2ConstPtr rosMsg = Converter::convert(cloud);
-        //   ros::Duration(2.0).sleep();
-        //   exit(0);
+          } else {
+              static int cloudMsgCnt = 0;
+              std::cout << "Synthetic point cloud msg no. " << cloudMsgCnt++ << std::endl;
+              sensor_msgs::PointCloud2Ptr cloudMsgSynthPtr(new sensor_msgs::PointCloud2());
+              generateSyntheticPointCloud(*cloudMsgSynthPtr);
+              PointCloud2MessagePtr cloudSrrg = std::dynamic_pointer_cast<PointCloud2Message>(Converter::convert(cloudMsgSynthPtr));
+              handleCloudMessage(cloudSrrg);
+          }
       } else {
           // Let's assume that for each point cloud in a .bag file there is one odometry pose
           // Try to convert the message to srrg2 point cloud
@@ -574,6 +584,38 @@ namespace structure_refinement {
       kdTrees_.push_back(std::move(kdTree));
   }
 
+  void PointCloudProc::generateSyntheticOdometry(nav_msgs::Odometry & odomMsg) {
+
+      Eigen::Isometry3d poseInc = Eigen::Isometry3d::Identity();
+      poseInc.translation() = Eigen::Vector3d(0.1, 0.05, 0.01);
+      double roll = 0.01, pitch = 0.01, yaw = 0.01;
+      poseInc.linear() = (Eigen::AngleAxisd(roll, Eigen::Vector3d::UnitX()) *
+                          Eigen::AngleAxisd(pitch, Eigen::Vector3d::UnitY()) *
+                          Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()))
+                             .toRotationMatrix();
+
+      // Calculate new pose
+      Eigen::Isometry3d newPose = Eigen::Isometry3d::Identity();
+      if (poses_.size() != 0)
+          newPose = poses_.back() * poseInc;
+      else
+          // Initial pose
+          newPose.translation() = Eigen::Vector3d(5, 5, 2);
+
+      // Fill up the odometry message
+      Eigen::Quaterniond quat(newPose.linear());
+      odomMsg.header.frame_id = "map";
+      odomMsg.header.stamp = ros::Time::now();
+      odomMsg.child_frame_id = "ba_estimate";
+      odomMsg.pose.pose.position.x = newPose.translation().x();
+      odomMsg.pose.pose.position.y = newPose.translation().y();
+      odomMsg.pose.pose.position.z = newPose.translation().z();
+      odomMsg.pose.pose.orientation.x = quat.x();
+      odomMsg.pose.pose.orientation.y = quat.y();
+      odomMsg.pose.pose.orientation.z = quat.z();
+      odomMsg.pose.pose.orientation.w = quat.w();
+  }
+
   void PointCloudProc::generateSyntheticPointCloud(sensor_msgs::PointCloud2 & cloudMsg) {
       
       static std::random_device rd;                           // obtain a random number from hardware
@@ -586,7 +628,7 @@ namespace structure_refinement {
       std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>> pointCloudSynth;
 
       // Room dimensons
-      double width = 10, depth = 15, height = 5;
+      double width = 20, depth = 15, height = 10;
       double pointsDensity = 10;  // Pts per meter
       Eigen::Vector3d point;
       // Generate floor
@@ -610,38 +652,21 @@ namespace structure_refinement {
               pointCloudSynth.push_back(Eigen::Vector3d(width, i / pointsDensity, j / pointsDensity));
           }
       }
-
-      cloudMsg.header.frame_id = "map";
+      
+      // Fill up the message fields
+      cloudMsg.header.frame_id = "ba_estimate";
       cloudMsg.header.stamp = ros::Time::now();
       cloudMsg.height = 1;
       cloudMsg.width  = pointCloudSynth.size();
-      std::cout << "Num of points:  " << pointCloudSynth.size()  << "  Synth Cloud size:  "  << cloudMsg.height * cloudMsg.width << std::endl;
-      
-      //   sensor_msgs::PointField fieldX, fieldY,  fieldZ;
-      //   fieldX.name = "x";
-      //   fieldX.offset = 0;
-      //   fieldX.datatype = 7;
-      //   fieldX.count = 1;
-      //   fieldY.name = "y";
-      //   fieldY.offset = 4;
-      //   fieldY.datatype = 7;
-      //   fieldY.count = 1;
-      //   fieldZ.name = "z";
-      //   fieldZ.offset = 8;
-      //   fieldZ.datatype = 7;
-      //   fieldZ.count = 1;
-      //   cloudMsg.fields.push_back(fieldX);
-      //   cloudMsg.fields.push_back(fieldY);
-      //   cloudMsg.fields.push_back(fieldZ);
       cloudMsg.is_bigendian = false;
-      //   cloudMsg.point_step = 12;
-      //   cloudMsg.row_step = cloudMsg.width * cloudMsg.point_step;
       cloudMsg.is_dense = true;
+
+      // Get the last pose to transform the pose to local LiDar frame
+      Eigen::Isometry3d & lastSynthPose = poses_.back();
       // Create the modifier to setup the fields and memory
       sensor_msgs::PointCloud2Modifier cloudModifier(cloudMsg);
       // Set the fields that our cloud will have
       cloudModifier.setPointCloud2FieldsByString(1, "xyz");
-
       // Create iterators
       sensor_msgs::PointCloud2Iterator<float> iterX(cloudMsg, "x");
       sensor_msgs::PointCloud2Iterator<float> iterY(cloudMsg, "y");
@@ -649,7 +674,7 @@ namespace structure_refinement {
       for (auto& point : pointCloudSynth) {
           //   for (; iterX != iterX.end(); ++iterX, ++iterY, ++iterZ)
           if (iterX != iterX.end()) {
-              Eigen::Vector3f point3f = point.cast<float>();
+              Eigen::Vector3f point3f =  (lastSynthPose.inverse() * point).cast<float>();
               *iterX = point3f[0];
               *iterY = point3f[1];
               *iterZ = point3f[2];
@@ -659,16 +684,9 @@ namespace structure_refinement {
           } else
               break;
       }
-      synthPointCloudPub_.publish(cloudMsg);
-
-      //   for (int i = 0; i < 200; i++) {
-      //       Eigen::Vector3d point = Eigen::Vector3d(distrX(gen) / 1e3, distrY(gen) / 1e3, distrZ(gen) / 1e3);
-      //       // transform the point
-      //     //   point = poses_.back() * point;
-      //       pointCloudSynth.push_back(point);
-      //   }
-      visual_tools_->publishSpheres(pointCloudSynth, static_cast<rviz_visual_tools::colors>(9), rviz_visual_tools::SMALL);
-      visual_tools_->trigger();
+    //   synthPointCloudPub_.publish(cloudMsg);
+    //   visual_tools_->publishSpheres(pointCloudSynth, static_cast<rviz_visual_tools::colors>(9), rviz_visual_tools::SMALL);
+    //   visual_tools_->trigger();
   }
 
   // Just for test
