@@ -102,7 +102,8 @@ namespace structure_refinement {
           else if (TransformEventsMessagePtr tfMsg = std::dynamic_pointer_cast<TransformEventsMessage>(msg)) {
               static int tfMsgCnt = 0;
               std::cout << std::setprecision(12) << "Transform message no." << tfMsgCnt++ << " Ts: " << tfMsg->timestamp.value() << std::endl;
-              handleTFMessage(tfMsg);
+              // Disabled - now the TF transform is published in handleOdometryMessage() which makes it simpler to use synthethic data
+              // handleTFMessage(tfMsg);
           }
           // Other messages types
           else {
@@ -417,6 +418,16 @@ namespace structure_refinement {
       pose.translation() = trans;
       pose.linear() = quat.toRotationMatrix();
       poses_.push_back(pose);
+
+      // Generate the TF message based on odometry msgs
+      geometry_msgs::TransformStamped tfStamped;
+      tfStamped.header = rosMsgPtr->header;
+      tfStamped.child_frame_id = rosMsgPtr->child_frame_id;
+      tfStamped.transform.translation.x = rosMsgPtr->pose.pose.position.x;
+      tfStamped.transform.translation.y = rosMsgPtr->pose.pose.position.y;
+      tfStamped.transform.translation.z = rosMsgPtr->pose.pose.position.z;
+      tfStamped.transform.rotation = rosMsgPtr->pose.pose.orientation;
+      transformBroadcaster_.sendTransform(tfStamped);
   }
 
   void PointCloudProc::handleCloudMessage(PointCloud2MessagePtr cloudMsg) {
