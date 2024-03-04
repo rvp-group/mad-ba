@@ -229,6 +229,9 @@ namespace structure_refinement {
 
   void PointCloudProc::visualizeCorrespondingSurfelsWithPoses() {
 
+      int decimation = 10;
+      int surfelsToVis = 20;
+
       unsigned int maxPoses = 0, idx = 0;
       for (unsigned int i = 0; i < surfels_.size(); i++) {
           if (surfels_.at(i)->poses_.size() > maxPoses) {
@@ -241,24 +244,24 @@ namespace structure_refinement {
       geometry_msgs::PoseArray poseArray;
       poseArray.header.stamp = ros::Time::now();
       poseArray.header.frame_id = "map";
-      for (unsigned int i = 0; i < surfels_.size(); i++) {
-          for (const Eigen::Isometry3d& pose : surfels_.at(i)->poses_) {
-              // Create new pose Msg
-              geometry_msgs::Pose poseMsg;
-              poseMsg.position.x = pose.translation().x();
-              poseMsg.position.y = pose.translation().y();
-              poseMsg.position.z = pose.translation().z();
-              // Add orientation
-              Eigen::Quaterniond quat(pose.linear());
-              poseMsg.orientation.x = quat.x();
-              poseMsg.orientation.y = quat.y();
-              poseMsg.orientation.z = quat.z();
-              poseMsg.orientation.w = quat.w();
-              // Add pose to poseArray
-              poseArray.poses.push_back(poseMsg);
-          }
+      for (unsigned int i = 0; i < surfels_.size(); i+= decimation) {
+        //   for (const Eigen::Isometry3d& pose : surfels_.at(i)->poses_) {
+        //       // Create new pose Msg
+        //       geometry_msgs::Pose poseMsg;
+        //       poseMsg.position.x = pose.translation().x();
+        //       poseMsg.position.y = pose.translation().y();
+        //       poseMsg.position.z = pose.translation().z();
+        //       // Add orientation
+        //       Eigen::Quaterniond quat(pose.linear());
+        //       poseMsg.orientation.x = quat.x();
+        //       poseMsg.orientation.y = quat.y();
+        //       poseMsg.orientation.z = quat.z();
+        //       poseMsg.orientation.w = quat.w();
+        //       // Add pose to poseArray
+        //       poseArray.poses.push_back(poseMsg);
+        //   }
           // Publish poses array
-          poseArrayPub_.publish(poseArray);
+        //   poseArrayPub_.publish(poseArray);
           static int markerColor = 4;
           markerColor++;
           // Show all correspondences in one color
@@ -267,7 +270,7 @@ namespace structure_refinement {
               //   if (surfels_.at(i)->poses_.size() == 3)
               {
                   static int visCnt = 0;
-                  if (visCnt++ > 500)
+                  if (visCnt++ > surfelsToVis)
                       break;
                   for (auto const& surfelId : poseId.second) {
                       TreeNodeType* leaf = kdTreeLeafes_[poseId.first].at(surfelId);
@@ -463,10 +466,28 @@ namespace structure_refinement {
           }
 
           // Get the reference to first item in buffer
-          PointCloud2MessagePtr & cloud = cloudBuffer.at(i);
+          PointCloud2MessagePtr& cloud = cloudBuffer.at(i);
 
           // Change the frame_id of the point cloud
           cloud->frame_id.value() = "ba_estimate";
+
+          // Create the point cloud to set new intensity value
+          std::shared_ptr<PointIntensity3fVectorCloud> pointCloudI3f(new PointIntensity3fVectorCloud());
+
+          // Count the number of point clouds for intensity value
+          static double cloudNum = 0;
+          cloudNum++;
+
+          // Get the point from original point cloud
+          cloud->getPointCloud(*pointCloudI3f);
+
+          // Set the Intensity for Rviz visualization
+          for (PointIntensity3f& p : *pointCloudI3f) {
+            p.intensity() = cloudNum;
+          }
+          // Set point to the visualizaton point cloud - overrides the intensity of the original cloud
+          cloud->setPointCloud(*pointCloudI3f);
+
           // Convert srrg2 to sensor_msgs point cloud
           sensor_msgs::PointCloud2ConstPtr rosMsg = Converter::convert(cloud);
 
@@ -530,27 +551,19 @@ namespace structure_refinement {
         // visual_tools_->deleteAllMarkers();
 
       static uint8_t markerColor = 0;  // Colors change <0,14>
-      if (++markerColor > 14)
-          markerColor = 0;
 
-      uint8_t decimation = 10;
+      uint8_t decimation = 1;
 
       Eigen::Isometry3d pose = Eigen::Isometry3d::Identity();
       for (auto& leaf : kdTreeLeafes_.at(idx)) {
           // Decimate for Rviz
           if (static int cnt = 0; cnt++ % decimation != 0)
               continue;
-          // Set the translation part
-          pose.translation() = Eigen::Vector3d(leaf->mean_);
-          // Calculate the rotation matrix
-          Eigen::Matrix3d rotMatrix = matrixBetween2Vectors(Eigen::Vector3d(1, 0, 0), leaf->eigenvectors_.col(0));
-          pose.linear() = rotMatrix;
-          // Publish normal as arrow
-          visual_tools_->publishArrow(pose, static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::XXXLARGE);
+        if (++markerColor > 14)
+          markerColor = 0;
+          
+        visualizeSurfel(leaf, markerColor);
       }
-
-      // Trigger publishing of all arrows
-      visual_tools_->trigger();
   }
 
   void PointCloudProc::createKDTree(std::vector<Eigen::Vector3d>& cloud, const Eigen::Isometry3d& lastPose) {
@@ -587,8 +600,8 @@ namespace structure_refinement {
   void PointCloudProc::generateSyntheticOdometry(nav_msgs::Odometry & odomMsg) {
 
       Eigen::Isometry3d poseInc = Eigen::Isometry3d::Identity();
-      poseInc.translation() = Eigen::Vector3d(0.1, 0.05, 0.01);
-      double roll = 0.01, pitch = 0.01, yaw = 0.01;
+      poseInc.translation() = Eigen::Vector3d(1.0, 1.35, 0.01);
+      double roll = 0.01, pitch = 0.03, yaw = 0.05;
       poseInc.linear() = (Eigen::AngleAxisd(roll, Eigen::Vector3d::UnitX()) *
                           Eigen::AngleAxisd(pitch, Eigen::Vector3d::UnitY()) *
                           Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()))
@@ -598,12 +611,18 @@ namespace structure_refinement {
       Eigen::Isometry3d newPose = Eigen::Isometry3d::Identity();
       if (poses_.size() != 0)
           newPose = poses_.back() * poseInc;
-      else
+      else{
           // Initial pose
-          newPose.translation() = Eigen::Vector3d(5, 5, 2);
+          newPose.translation() = Eigen::Vector3d(3, 2, 2);
+          newPose.linear() = poseInc.linear();
+      }
 
       // Fill up the odometry message
       Eigen::Quaterniond quat(newPose.linear());
+
+      // Normalize the quaternion
+      quat.normalize();
+      
       odomMsg.header.frame_id = "map";
       odomMsg.header.stamp = ros::Time::now();
       odomMsg.child_frame_id = "ba_estimate";
@@ -620,36 +639,34 @@ namespace structure_refinement {
       
       static std::random_device rd;                           // obtain a random number from hardware
       static std::mt19937 gen(rd());                          // seed the generator
-      static std::uniform_int_distribution<> distrX(1, 300);  //  // define the range
-      static std::uniform_int_distribution<> distrY(1, 200);  //  // define the range
-      static std::uniform_int_distribution<> distrZ(1, 20);   //  // define the range
+      static std::normal_distribution<double> noise(0, 0.03);  // noise (mean, var)
 
       // Synthethic cloud
       std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>> pointCloudSynth;
 
       // Room dimensons
-      double width = 20, depth = 15, height = 10;
+      double width = 10, depth = 15, height = 5;
       double pointsDensity = 10;  // Pts per meter
       Eigen::Vector3d point;
       // Generate floor
       for (int i = 0; i <= width * pointsDensity; i++) {
           for (int j = 0; j <= depth * pointsDensity; j++) {
-              pointCloudSynth.push_back(Eigen::Vector3d(i / pointsDensity, j / pointsDensity, 0));
+              pointCloudSynth.push_back(Eigen::Vector3d(i / pointsDensity + noise(gen), j / pointsDensity + noise(gen), 0 + noise(gen)));
           }
       }
       // Generate front and back walls
       for (int i = 0; i <= width * pointsDensity; i++) {
           for (int j = 1; j < height * pointsDensity; j++) {
-              pointCloudSynth.push_back(Eigen::Vector3d(i / pointsDensity, 0, j / pointsDensity));
-              pointCloudSynth.push_back(Eigen::Vector3d(i / pointsDensity, depth, j / pointsDensity));
+              pointCloudSynth.push_back(Eigen::Vector3d(i / pointsDensity + noise(gen), 0 + noise(gen), j / pointsDensity + noise(gen)));
+              pointCloudSynth.push_back(Eigen::Vector3d(i / pointsDensity + noise(gen), depth + noise(gen), j / pointsDensity + noise(gen)));
           }
       }
 
       // Generate left and right walls
       for (int i = 1; i < depth * pointsDensity; i++) {
           for (int j = 1; j < height * pointsDensity; j++) {
-              pointCloudSynth.push_back(Eigen::Vector3d(0, i / pointsDensity, j / pointsDensity));
-              pointCloudSynth.push_back(Eigen::Vector3d(width, i / pointsDensity, j / pointsDensity));
+            pointCloudSynth.push_back(Eigen::Vector3d(0 + noise(gen), i / pointsDensity + noise(gen), j / pointsDensity + noise(gen)));
+            pointCloudSynth.push_back(Eigen::Vector3d(width + noise(gen), i / pointsDensity + noise(gen), j / pointsDensity + noise(gen)));
           }
       }
       
@@ -666,13 +683,18 @@ namespace structure_refinement {
       // Create the modifier to setup the fields and memory
       sensor_msgs::PointCloud2Modifier cloudModifier(cloudMsg);
       // Set the fields that our cloud will have
-      cloudModifier.setPointCloud2FieldsByString(1, "xyz");
+      //   cloudModifier.setPointCloud2FieldsByString(1, "xyz");
+      cloudModifier.setPointCloud2Fields(4, "x", 1, sensor_msgs::PointField::FLOAT32,
+                                         "y", 1, sensor_msgs::PointField::FLOAT32,
+                                         "z", 1, sensor_msgs::PointField::FLOAT32,
+                                         "intensity", 1, sensor_msgs::PointField::FLOAT32);
       // Create iterators
       sensor_msgs::PointCloud2Iterator<float> iterX(cloudMsg, "x");
       sensor_msgs::PointCloud2Iterator<float> iterY(cloudMsg, "y");
       sensor_msgs::PointCloud2Iterator<float> iterZ(cloudMsg, "z");
+      sensor_msgs::PointCloud2Iterator<float> iterI(cloudMsg, "intensity");
+
       for (auto& point : pointCloudSynth) {
-          //   for (; iterX != iterX.end(); ++iterX, ++iterY, ++iterZ)
           if (iterX != iterX.end()) {
               Eigen::Vector3f point3f =  (lastSynthPose.inverse() * point).cast<float>();
               *iterX = point3f[0];
@@ -736,4 +758,140 @@ namespace structure_refinement {
     return true;
   }
 
-} // namespace structure_refinement
+  void PointCloudProc::createGraph() {
+
+    // Create graph
+    srrg2_solver::FactorGraphPtr graph(new srrg2_solver::FactorGraph);
+
+    // Add first variable
+    auto firstPoseVar = std::make_shared<srrg2_solver::VariableSE3QuaternionRight>();
+    firstPoseVar->setGraphId(0);
+    firstPoseVar->setEstimate(poses_.at(0).cast<float>());
+    firstPoseVar->setStatus(srrg2_solver::VariableBase::Status::Fixed);
+    graph->addVariable(firstPoseVar);
+
+    // Save the previous variable for next iterations
+    auto prevPoseVar = firstPoseVar;
+
+    // Define the noise added to the poses
+    Eigen::Isometry3f perturbation = Eigen::Isometry3f::Identity();
+    static std::random_device rd;                                 // obtain a random number from hardware
+    static std::mt19937 gen(rd());                                // seed the generator
+    static std::normal_distribution<double> noise(0.0, 0.6);  //  // define the range
+
+    // Take all poses
+    unsigned int idx = 0;
+    for (int idx = 1; idx < poses_.size(); idx++) {
+      // Create a new variable for each pose
+      auto poseVar = std::make_shared<srrg2_solver::VariableSE3QuaternionRight>();
+      // Set Id of a varaible
+      poseVar->setGraphId(idx);
+
+      // Generate the noise matrix
+      perturbation.translation() = Eigen::Vector3f(noise(gen), noise(gen), noise(gen));
+      perturbation.linear() = (Eigen::AngleAxisf(noise(gen), Eigen::Vector3f::UnitX()) *
+                               Eigen::AngleAxisf(noise(gen), Eigen::Vector3f::UnitY()) *
+                               Eigen::AngleAxisf(noise(gen), Eigen::Vector3f::UnitZ()))
+                             .toRotationMatrix();
+
+      // Set estimate with noise
+      poseVar->setEstimate(poses_.at(idx).cast<float>() * perturbation);
+
+      // Add variable to the graph
+      graph->addVariable(srrg2_solver::VariableBasePtr(poseVar));
+
+      // Create factorype();
+      auto factor = std::make_shared<srrg2_solver::SE3PosePoseGeodesicErrorFactor>();
+      factor->setVariableId(0, prevPoseVar->graphId());
+      factor->setVariableId(1, poseVar->graphId());
+
+      // Set the measurement based on GT data, without the perturbation
+      Eigen::Isometry3f inc = poses_.at(idx-1).cast<float>().inverse() * poses_.at(idx).cast<float>();
+      factor->setMeasurement(inc);
+
+      // Set information matrix as Identity
+      Eigen::Matrix<float, 6, 6> infMat = Eigen::Matrix<float, 6, 6>::Identity();
+      factor->setInformationMatrix(infMat);
+
+      // Add factor to the graph
+      graph->addFactor(factor);
+
+      prevPoseVar = poseVar;
+    }
+    // Simulates loop closure for test
+    // {
+    //   auto factor = std::make_shared<srrg2_solver::SE3PosePoseGeodesicErrorFactor>();
+    //   factor->setVariableId(0, firstPoseVar->graphId());
+    //   factor->setVariableId(1, poses_.size() - 1);
+    //   factor->setMeasurement(Eigen::Isometry3f::Identity());
+    //   Eigen::Matrix<float, 6, 6> infMat = Eigen::Matrix<float, 6, 6>::Identity();
+    //   factor->setInformationMatrix(infMat);
+    //   graph->addFactor(factor);
+    // }
+
+
+    // Instanciate a solver
+    srrg2_solver::Solver solver;
+    // Remove default termination criteria
+    solver.param_termination_criteria.setValue(nullptr);
+    // Set max number of iterations
+    solver.param_max_iterations.pushBack(50);
+    // Change iteration algorithm to LM
+    std::shared_ptr<srrg2_solver::IterationAlgorithmLM> lm(new srrg2_solver::IterationAlgorithmLM);
+    lm->param_user_lambda_init.setValue(1e-7);
+    solver.param_algorithm.setValue(lm);
+
+    // Connect the graph to the solver and compute
+    solver.setGraph(graph);
+
+
+    // Visualize poses before and after optimization
+    geometry_msgs::PoseArray poseArrayBefore;
+    createPoseArrayfromGraph(poseArrayBefore, graph);
+    // Publish poses array before optimization
+    beforeOptimPoseArrayPub_.publish(poseArrayBefore);
+    // solver.saveGraph("before.graph");
+    // Optimize the graph
+    solver.compute();
+    // solver.saveGraph("after.graph");
+    // Visualize statistics and exit
+    const auto& stats = solver.iterationStats();
+    std::cout << "performed [" << FG_YELLOW(stats.size()) << "] iterations" << std::endl;
+    std::cout << "stats\n\n";
+    std::cout << stats << std::endl;
+
+    geometry_msgs::PoseArray poseArrayAfter;
+    createPoseArrayfromGraph(poseArrayAfter, graph);
+    // Publish poses array after optimization
+    afterOptimPoseArrayPub_.publish(poseArrayAfter);
+  }
+
+  void PointCloudProc::createPoseArrayfromGraph(geometry_msgs::PoseArray& poseArray, const srrg2_solver::FactorGraphPtr & graph) {
+    // visualize the poses
+
+    poseArray.header.stamp = ros::Time::now();
+    poseArray.header.frame_id = "map";
+    for (auto varIt : graph->variables()) {
+      srrg2_solver::VariableBase* v = varIt.second;
+      srrg2_solver::VariableSE3QuaternionRight* varPose = dynamic_cast<srrg2_solver::VariableSE3QuaternionRight*>(varIt.second);
+      if (!varPose) {
+        continue;
+      }
+      // Create new pose Msg
+      geometry_msgs::Pose poseMsg;
+      Eigen::Isometry3f pose = varPose->estimate();
+      poseMsg.position.x = pose.translation().x();
+      poseMsg.position.y = pose.translation().y();
+      poseMsg.position.z = pose.translation().z();
+      // Add orientation
+      Eigen::Quaternionf quat(pose.linear());
+      poseMsg.orientation.x = quat.x();
+      poseMsg.orientation.y = quat.y();
+      poseMsg.orientation.z = quat.z();
+      poseMsg.orientation.w = quat.w();
+      // Add pose to poseArray
+      poseArray.poses.push_back(poseMsg);
+    }
+  }
+
+  }  // namespace structure_refinement

@@ -19,6 +19,14 @@
 #include <srrg_messages/messages/point_cloud2_message.h>
 #include <srrg_messages/messages/odometry_message.h>
 #include <srrg_messages/messages/transform_events_message.h>
+#include "srrg_solver/solver_core/factor_graph.h"
+#include "srrg_solver/solver_core/instances.h"
+#include "srrg_solver/solver_core/internals/linear_solvers/instances.h"
+#include "srrg_solver/solver_core/internals/linear_solvers/sparse_block_linear_solver_ldl.h"
+#include "srrg_solver/solver_core/solver.h"
+#include "srrg_solver/variables_and_factors/types_3d/all_types.h"
+#include "srrg_solver/variables_and_factors/types_3d/instances.h"
+#include <srrg_solver/solver_core/iteration_algorithm_lm.h>
 #include <nav_msgs/Odometry.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <iostream>
@@ -64,6 +72,8 @@ namespace structure_refinement {
     int findLeafId(unsigned int, TreeNodeTypePtr);  // Find the id of a leaf in a given kdTree
     void generateSyntheticPointCloud(sensor_msgs::PointCloud2 &);
     void generateSyntheticOdometry(nav_msgs::Odometry &);
+    void createGraph();
+    void createPoseArrayfromGraph(geometry_msgs::PoseArray &, const srrg2_solver::FactorGraphPtr &);
 
    protected:
     using PointUnprojectorBase = srrg2_core::PointUnprojectorBase_<srrg2_core::PointNormalIntensity3fVectorCloud>;
