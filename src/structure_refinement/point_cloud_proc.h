@@ -72,8 +72,12 @@ namespace structure_refinement {
     int findLeafId(unsigned int, TreeNodeTypePtr);  // Find the id of a leaf in a given kdTree
     void generateSyntheticPointCloud(sensor_msgs::PointCloud2 &);
     void generateSyntheticOdometry(nav_msgs::Odometry &);
-    void createGraph();
+    void createFactorGraph(srrg2_solver::FactorGraphPtr &);
     void createPoseArrayfromGraph(geometry_msgs::PoseArray &, const srrg2_solver::FactorGraphPtr &);
+    void publishTFFromGraph(const srrg2_solver::FactorGraphPtr &);
+    void publishPointClouds();
+    void handleFactorGraph();
+    void optimizeFactorGraph(srrg2_solver::FactorGraphPtr &);
 
    protected:
     using PointUnprojectorBase = srrg2_core::PointUnprojectorBase_<srrg2_core::PointNormalIntensity3fVectorCloud>;
@@ -94,7 +98,7 @@ namespace structure_refinement {
     std::vector<Eigen::Isometry3d> poses_;
 
     std::vector<std::shared_ptr<Surfel>> surfels_; // Vector of all the surfels. Indexes do NOT correspond to anything else
-
+    std::vector<sensor_msgs::PointCloud2> rosPointClouds_; // Vector of point clouds for vizualization, as Rviz sometimes doesn't display them
     // ROS
     ros::NodeHandle nh_;
     ros::Publisher pointCloudPub_; // Raw point clouds publisher
@@ -102,6 +106,10 @@ namespace structure_refinement {
 
     ros::Publisher odomPub_; // Odometry from .bag file publisher
     ros::Publisher poseArrayPub_;
+    ros::Publisher afterOptimPoseArrayPub_;
+    ros::Publisher beforeOptimPoseArrayPub_;
+
+    ros::Time lastTimestamp_;
     tf2_ros::TransformBroadcaster transformBroadcaster_;
 
     // Rviz Visualization Tools

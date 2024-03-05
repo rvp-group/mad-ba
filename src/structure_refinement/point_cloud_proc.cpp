@@ -33,6 +33,8 @@ namespace structure_refinement {
       synthPointCloudPub_ = nh_.advertise<sensor_msgs::PointCloud2>("synth_point_cloud", 100);
       odomPub_ = nh_.advertise<nav_msgs::Odometry>("ba_estimate", 100);
       poseArrayPub_ = nh_.advertise<geometry_msgs::PoseArray>("surfel_pose_array", 100);
+      beforeOptimPoseArrayPub_ = nh_.advertise<geometry_msgs::PoseArray>("before_optim_pose_array", 100);
+      afterOptimPoseArrayPub_ = nh_.advertise<geometry_msgs::PoseArray>("after_optim_pose_array", 100);
 
       // Initalize rviz visual tools
       visual_tools_.reset(new rviz_visual_tools::RvizVisualTools("map", "rviz_visual_markers"));
@@ -61,16 +63,21 @@ namespace structure_refinement {
 
       // Skip first n messages and process only m first clouds
       uint cloudsToSkip = 100;
-      uint cloudsToProcess = 2;
+      uint cloudsToProcess = 3;
       static int msgCnt = -1;
-      if (++msgCnt < 2 * cloudsToSkip)
-          return true;
-      else if (msgCnt > 2 * (cloudsToSkip + cloudsToProcess)) {
-          // Publish results before exit
-          mergeSurfels();
-          visualizeCorrespondingSurfelsWithPoses();
-          ros::Duration(2.0).sleep();
-          exit(0);
+      if (++msgCnt < 2 * cloudsToSkip) {
+        return true;
+      } else if (msgCnt > 2 * (cloudsToSkip + cloudsToProcess)) {
+        // Publish results before exit
+        //   publishCloudNormals(kdTreeLeafes_.size() - 1);
+        //   mergeSurfels();
+        //   visualizeCorrespondingSurfelsWithPoses();
+        //   ros::Duration(5.0).sleep();
+        handleFactorGraph();
+
+        //   visualizePointClouds();
+        ros::Duration(2.0).sleep();
+        exit(0);
       }
 
       if (useSynthethicData) {
@@ -433,9 +440,11 @@ namespace structure_refinement {
       poses_.push_back(pose);
 
       // Generate the TF message based on odometry msgs
+      static uint cnt = 0;
       geometry_msgs::TransformStamped tfStamped;
       tfStamped.header = rosMsgPtr->header;
-      tfStamped.child_frame_id = rosMsgPtr->child_frame_id;
+      //   tfStamped.child_frame_id = rosMsgPtr->child_frame_id + "_" + std::to_string(rosMsgPtr->header.stamp.toSec());
+      tfStamped.child_frame_id = rosMsgPtr->child_frame_id + "_" + std::to_string(cnt++);
       tfStamped.transform.translation.x = rosMsgPtr->pose.pose.position.x;
       tfStamped.transform.translation.y = rosMsgPtr->pose.pose.position.y;
       tfStamped.transform.translation.z = rosMsgPtr->pose.pose.position.z;
@@ -468,22 +477,22 @@ namespace structure_refinement {
           // Get the reference to first item in buffer
           PointCloud2MessagePtr& cloud = cloudBuffer.at(i);
 
+          // Count the number of point clouds for intensity value and the frame_id
+          static uint cloudNum = 0;
+
           // Change the frame_id of the point cloud
-          cloud->frame_id.value() = "ba_estimate";
+          cloud->frame_id.value() = "ba_estimate_" + std::to_string(cloudNum++);
+          //   cloud->frame_id.value() = "ba_estimate_" + std::to_string(cloud->timestamp.value());;
 
           // Create the point cloud to set new intensity value
           std::shared_ptr<PointIntensity3fVectorCloud> pointCloudI3f(new PointIntensity3fVectorCloud());
-
-          // Count the number of point clouds for intensity value
-          static double cloudNum = 0;
-          cloudNum++;
 
           // Get the point from original point cloud
           cloud->getPointCloud(*pointCloudI3f);
 
           // Set the Intensity for Rviz visualization
           for (PointIntensity3f& p : *pointCloudI3f) {
-            p.intensity() = cloudNum;
+            p.intensity() = (float) cloudNum;
           }
           // Set point to the visualizaton point cloud - overrides the intensity of the original cloud
           cloud->setPointCloud(*pointCloudI3f);
@@ -491,8 +500,11 @@ namespace structure_refinement {
           // Convert srrg2 to sensor_msgs point cloud
           sensor_msgs::PointCloud2ConstPtr rosMsg = Converter::convert(cloud);
 
+          // Store the point cloud to visualize it after optimization etc.
+          rosPointClouds_.push_back(*rosMsg);
+
           // Publish the raw cloud as ROS message
-          pointCloudPub_.publish(*rosMsg);
+        //   pointCloudPub_.publish(*rosMsg);
 
           // Create Point3f Point Cloud from srrg2 point cloud
           std::shared_ptr<Point3fVectorCloud> pointCloudPoint3f(new Point3fVectorCloud());
@@ -556,12 +568,12 @@ namespace structure_refinement {
 
       Eigen::Isometry3d pose = Eigen::Isometry3d::Identity();
       for (auto& leaf : kdTreeLeafes_.at(idx)) {
-          // Decimate for Rviz
-          if (static int cnt = 0; cnt++ % decimation != 0)
-              continue;
+        // Decimate for Rviz
+        if (static int cnt = 0; cnt++ % decimation != 0)
+          continue;
         if (++markerColor > 14)
           markerColor = 0;
-          
+
         visualizeSurfel(leaf, markerColor);
       }
   }
@@ -625,6 +637,7 @@ namespace structure_refinement {
       
       odomMsg.header.frame_id = "map";
       odomMsg.header.stamp = ros::Time::now();
+      lastTimestamp_ = odomMsg.header.stamp;
       odomMsg.child_frame_id = "ba_estimate";
       odomMsg.pose.pose.position.x = newPose.translation().x();
       odomMsg.pose.pose.position.y = newPose.translation().y();
@@ -669,12 +682,13 @@ namespace structure_refinement {
             pointCloudSynth.push_back(Eigen::Vector3d(width + noise(gen), i / pointsDensity + noise(gen), j / pointsDensity + noise(gen)));
           }
       }
-      
+
       // Fill up the message fields
       cloudMsg.header.frame_id = "ba_estimate";
-      cloudMsg.header.stamp = ros::Time::now();
+      //   cloudMsg.header.stamp = ros::Time::now();
+      cloudMsg.header.stamp = lastTimestamp_;
       cloudMsg.height = 1;
-      cloudMsg.width  = pointCloudSynth.size();
+      cloudMsg.width = pointCloudSynth.size();
       cloudMsg.is_bigendian = false;
       cloudMsg.is_dense = true;
 
@@ -758,10 +772,9 @@ namespace structure_refinement {
     return true;
   }
 
-  void PointCloudProc::createGraph() {
+  void PointCloudProc::createFactorGraph(srrg2_solver::FactorGraphPtr &graph) {
 
     // Create graph
-    srrg2_solver::FactorGraphPtr graph(new srrg2_solver::FactorGraph);
 
     // Add first variable
     auto firstPoseVar = std::make_shared<srrg2_solver::VariableSE3QuaternionRight>();
@@ -777,7 +790,7 @@ namespace structure_refinement {
     Eigen::Isometry3f perturbation = Eigen::Isometry3f::Identity();
     static std::random_device rd;                                 // obtain a random number from hardware
     static std::mt19937 gen(rd());                                // seed the generator
-    static std::normal_distribution<double> noise(0.0, 0.6);  //  // define the range
+    static std::normal_distribution<double> noise(0.1, 0.2);  //  // define the range
 
     // Take all poses
     unsigned int idx = 0;
@@ -792,7 +805,7 @@ namespace structure_refinement {
       perturbation.linear() = (Eigen::AngleAxisf(noise(gen), Eigen::Vector3f::UnitX()) *
                                Eigen::AngleAxisf(noise(gen), Eigen::Vector3f::UnitY()) *
                                Eigen::AngleAxisf(noise(gen), Eigen::Vector3f::UnitZ()))
-                             .toRotationMatrix();
+                                  .toRotationMatrix();
 
       // Set estimate with noise
       poseVar->setEstimate(poses_.at(idx).cast<float>() * perturbation);
@@ -818,6 +831,7 @@ namespace structure_refinement {
 
       prevPoseVar = poseVar;
     }
+    
     // Simulates loop closure for test
     // {
     //   auto factor = std::make_shared<srrg2_solver::SE3PosePoseGeodesicErrorFactor>();
@@ -829,6 +843,43 @@ namespace structure_refinement {
     //   graph->addFactor(factor);
     // }
 
+  }
+
+
+void PointCloudProc::handleFactorGraph()
+{
+    // Create graph variable
+    srrg2_solver::FactorGraphPtr graph(new srrg2_solver::FactorGraph);
+
+    // Set all variables and edges | Also adds noise to the estimates
+    createFactorGraph(graph);
+
+    // Visualize poses before the ptimization
+    geometry_msgs::PoseArray poseArrayBefore;
+    createPoseArrayfromGraph(poseArrayBefore, graph);
+    beforeOptimPoseArrayPub_.publish(poseArrayBefore);
+    // solver.saveGraph("before.graph");
+
+    // Visualize the point cloud before the optimizaton but after adding noise | To display PointCloud, the TF time must be later than time of PointCloud
+    publishPointClouds();
+    publishTFFromGraph(graph);
+
+    // Optimize the graph
+    optimizeFactorGraph(graph);
+    ros::Duration(5.0).sleep();
+
+    // Publish poses array after optimization
+    geometry_msgs::PoseArray poseArrayAfter;
+    createPoseArrayfromGraph(poseArrayAfter, graph);
+    afterOptimPoseArrayPub_.publish(poseArrayAfter);
+
+    // Update the point cloud after the optimizaton | To display PointCloud, the TF time must be later than time of PointCloud
+    publishPointClouds();
+    publishTFFromGraph(graph);
+    
+}
+
+ void PointCloudProc::optimizeFactorGraph(srrg2_solver::FactorGraphPtr &graph){
 
     // Instanciate a solver
     srrg2_solver::Solver solver;
@@ -844,13 +895,6 @@ namespace structure_refinement {
     // Connect the graph to the solver and compute
     solver.setGraph(graph);
 
-
-    // Visualize poses before and after optimization
-    geometry_msgs::PoseArray poseArrayBefore;
-    createPoseArrayfromGraph(poseArrayBefore, graph);
-    // Publish poses array before optimization
-    beforeOptimPoseArrayPub_.publish(poseArrayBefore);
-    // solver.saveGraph("before.graph");
     // Optimize the graph
     solver.compute();
     // solver.saveGraph("after.graph");
@@ -860,10 +904,7 @@ namespace structure_refinement {
     std::cout << "stats\n\n";
     std::cout << stats << std::endl;
 
-    geometry_msgs::PoseArray poseArrayAfter;
-    createPoseArrayfromGraph(poseArrayAfter, graph);
-    // Publish poses array after optimization
-    afterOptimPoseArrayPub_.publish(poseArrayAfter);
+
   }
 
   void PointCloudProc::createPoseArrayfromGraph(geometry_msgs::PoseArray& poseArray, const srrg2_solver::FactorGraphPtr & graph) {
@@ -885,12 +926,49 @@ namespace structure_refinement {
       poseMsg.position.z = pose.translation().z();
       // Add orientation
       Eigen::Quaternionf quat(pose.linear());
+      quat.normalize();
       poseMsg.orientation.x = quat.x();
       poseMsg.orientation.y = quat.y();
       poseMsg.orientation.z = quat.z();
       poseMsg.orientation.w = quat.w();
       // Add pose to poseArray
       poseArray.poses.push_back(poseMsg);
+    }
+  }
+
+  void PointCloudProc::publishTFFromGraph(const srrg2_solver::FactorGraphPtr & graph) {
+    // Republish the tf's
+    int cnt = 0;
+    for (auto varIt : graph->variables()) {
+      srrg2_solver::VariableBase* v = varIt.second;
+      srrg2_solver::VariableSE3QuaternionRight* varPose = dynamic_cast<srrg2_solver::VariableSE3QuaternionRight*>(varIt.second);
+      if (!varPose) {
+        continue;
+      }
+      geometry_msgs::TransformStamped tfStamped;
+      tfStamped.header.stamp = ros::Time::now();
+      tfStamped.header.frame_id = "map";
+      tfStamped.child_frame_id = "ba_estimate_" + std::to_string(cnt++);
+
+      Eigen::Isometry3f pose = varPose->estimate();
+      Eigen::Quaternionf quat(pose.linear());
+      quat.normalize();
+
+      tfStamped.transform.translation.x = pose.translation().x();
+      tfStamped.transform.translation.y = pose.translation().y();
+      tfStamped.transform.translation.z = pose.translation().z();
+      tfStamped.transform.rotation.x = quat.x();
+      tfStamped.transform.rotation.y = quat.y();
+      tfStamped.transform.rotation.z = quat.z();
+      tfStamped.transform.rotation.w = quat.w();
+      transformBroadcaster_.sendTransform(tfStamped);
+    }
+  }
+
+  void PointCloudProc::publishPointClouds() {
+    for (sensor_msgs::PointCloud2& pc : rosPointClouds_) {
+      pc.header.stamp = ros::Time::now();
+      pointCloudPub_.publish(pc);
     }
   }
 
