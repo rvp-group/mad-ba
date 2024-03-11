@@ -18,6 +18,7 @@
 #include <geometry_msgs/TransformStamped.h>
 #include <cstdio>
 #include <tf2/LinearMath/Quaternion.h>
+#include <cmath>
 
 namespace structure_refinement {
   using namespace srrg2_core;
@@ -316,7 +317,8 @@ namespace structure_refinement {
 
       // Parameters for merging
       // Max distance between two surfels to consider the merge
-      double maxDistance = 0.05;
+      double maxDistance = 0.10;
+      double maxDistanceNorm = 0.4;
       // Max angle between two surfels to consider the merge
       double maxAngle = 2.0 * M_PI / 180.0;
 
@@ -341,7 +343,8 @@ namespace structure_refinement {
                   //   std::cout << "SurfelB size:  "  << surfelB->num_points_ << std::endl;
                   //   auto& surfelB = (kdTrees_.at(j))->bestMatchingLeafFast(surfelA->mean_);
                   double distance = (leafJ->mean_ - leafI->mean_).norm();
-                  if (distance < maxDistance) {
+                  double distanceNorm = abs((leafJ->mean_ - leafI->mean_).dot(leafI->eigenvectors_.col(0)));
+                  if (distance < maxDistance || distanceNorm < maxDistanceNorm) {
                       double angle = angleBetween2Vectors(leafI->eigenvectors_.col(0), leafJ->eigenvectors_.col(0));
                       if (angle < maxAngle) {
                           // Visualize the surfels for merge
