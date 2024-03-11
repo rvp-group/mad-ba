@@ -50,7 +50,6 @@ namespace structure_refinement {
       static_transformStamped.child_frame_id = "map";
       static_transformStamped.transform.rotation.w = 1.0;
       staticBrd.sendTransform(static_transformStamped);
-  
   }
 
   PointCloudProc::~PointCloudProc()  {
@@ -62,16 +61,20 @@ namespace structure_refinement {
       bool useSynthethicData = true;
 
       // Skip first n messages and process only m first clouds
-      uint cloudsToSkip = 100;
-      uint cloudsToProcess = 3;
+      int cloudsToSkip = 100;
+      int cloudsToProcess = 2;
       static int msgCnt = -1;
       if (++msgCnt < 2 * cloudsToSkip) {
         return true;
       } else if (msgCnt > 2 * (cloudsToSkip + cloudsToProcess)) {
         // Publish results before exit
         //   publishCloudNormals(kdTreeLeafes_.size() - 1);
-        //   mergeSurfels();
-        //   visualizeCorrespondingSurfelsWithPoses();
+        mergeSurfels();
+        // publishCloudNormals(0);
+        // publishCloudNormals(1);
+        // publishCloudNormals(2);
+
+        visualizeCorrespondingSurfelsWithPoses();
         //   ros::Duration(5.0).sleep();
         handleFactorGraph();
 
@@ -216,7 +219,7 @@ namespace structure_refinement {
           poseArray.header.frame_id = "map";
 
           // Add all poses for given surfel
-          for (const Eigen::Isometry3d& pose : surfel->poses_) {
+          for (const Eigen::Isometry3d& pose : surfel->odomPoses_) {
               // Create new pose Msg
               geometry_msgs::Pose poseMsg;
               poseMsg.position.x = pose.translation().x();
@@ -238,14 +241,13 @@ namespace structure_refinement {
 
   void PointCloudProc::visualizeCorrespondingSurfelsWithPoses() {
 
-      int decimation = 10;
-      int surfelsToVis = 20;
+      int decimation = 1;
+      int surfelsToVis = 1000;
 
-      unsigned int maxPoses = 0, idx = 0;
+      unsigned int maxPoses = 0;
       for (unsigned int i = 0; i < surfels_.size(); i++) {
-          if (surfels_.at(i)->poses_.size() > maxPoses) {
-              maxPoses = surfels_.at(i)->poses_.size();
-              idx = i;
+          if (surfels_.at(i)->odomPoses_.size() > maxPoses) {
+              maxPoses = surfels_.at(i)->odomPoses_.size();
           }
       }
 
@@ -274,9 +276,10 @@ namespace structure_refinement {
           static int markerColor = 4;
           markerColor++;
           // Show all correspondences in one color
-          for (auto const& poseId : surfels_.at(i)->posesIds_) {
+          for (auto const& poseId : surfels_.at(i)->poseSurfelsIds_) {
               //   Visuzalize surfels with poses num > maxPoses/2
-              //   if (surfels_.at(i)->poses_.size() == 3)
+              // ToDo check if these are different poses or sth
+              // if (surfels_.at(i)->odomPoses_.size() == 3)
               {
                   static int visCnt = 0;
                   if (visCnt++ > surfelsToVis)
@@ -297,7 +300,7 @@ namespace structure_refinement {
   void PointCloudProc::saveSurfelsTofile() {
       // Sort the surfels based on number of surfels its created from
       std::sort(surfels_.begin(), surfels_.end(), [](const std::shared_ptr<Surfel>& a, const std::shared_ptr<Surfel>& b) {
-          return a->poses_.size() < b->poses_.size();
+          return a->odomPoses_.size() < b->odomPoses_.size();
       });
       // Add all surfels as json object
       auto jsonArray = nlohmann::json::array();
@@ -379,27 +382,27 @@ namespace structure_refinement {
 
                           // Create observation for given surfel from pose I
                           if (!foundSurfelI) {
-                              Eigen::Matrix<double, 9, 1> observationI = Eigen::Matrix<double, 9, 1>::Identity();
-                              observationI.block<3, 1>(0, 0) = leafI->mean_;
-                              observationI.block<3, 1>(3, 0) = leafI->eigenvectors_.col(0).transpose();
-                              observationI.block<3, 1>(6, 0) = leafI->bbox_;
+                              Eigen::Matrix<double, 3, 5> observationI = Eigen::Matrix<double, 3, 5>::Identity();
+                              observationI.block<3, 3>(0, 0) = leafI->eigenvectors_;
+                              observationI.block<3, 1>(0, 3) = leafI->mean_;
+                              observationI.block<3, 1>(0, 4) = leafI->bbox_;
                               surfel->addObservation(poses_.at(i), i, observationI);
                           }
 
                           // Create observation for given surfel from pose J
                           if (!foundSurfelJ) {
-                              Eigen::Matrix<double, 9, 1> observationJ = Eigen::Matrix<double, 9, 1>::Identity();
-                              observationJ.block<3, 1>(0, 0) = leafI->mean_;
-                              observationJ.block<3, 1>(3, 0) = leafI->eigenvectors_.col(0).transpose();
-                              observationJ.block<3, 1>(6, 0) = leafI->bbox_;
+                              Eigen::Matrix<double, 3, 5> observationJ = Eigen::Matrix<double, 3, 5>::Identity();
+                              observationJ.block<3, 3>(0, 0) = leafJ->eigenvectors_;
+                              observationJ.block<3, 1>(0, 3) = leafJ->mean_;
+                              observationJ.block<3, 1>(0, 4) = leafJ->bbox_;
                               surfel->addObservation(poses_.at(j), j, observationJ);
                           }
 
                           // ToDo: make Surfel method for this
                           // Add leafI in a kdTreeI
-                          surfel->posesIds_[i].insert(idLeafI);
+                          surfel->poseSurfelsIds_[i].insert(idLeafI);
                           // Add leafJ in a kdTreeJ
-                          surfel->posesIds_[j].insert(idLeafJ);
+                          surfel->poseSurfelsIds_[j].insert(idLeafJ);
                           // Add surfel to a vector for storage
                           if (foundSurfelI == false && foundSurfelJ == false)
                               surfels_.push_back(std::move(surfel));
@@ -451,7 +454,7 @@ namespace structure_refinement {
       tfStamped.transform.translation.y = rosMsgPtr->pose.pose.position.y;
       tfStamped.transform.translation.z = rosMsgPtr->pose.pose.position.z;
       tfStamped.transform.rotation = rosMsgPtr->pose.pose.orientation;
-      transformBroadcaster_.sendTransform(tfStamped);
+      // transformBroadcaster_.sendTransform(tfStamped);
   }
 
   void PointCloudProc::handleCloudMessage(PointCloud2MessagePtr cloudMsg) {
@@ -469,7 +472,7 @@ namespace structure_refinement {
           int idx_cloud = pointClouds_.size();
           int idx_pose = poses_.size() - 1;
 
-          // If there is no pose for the cloud then add it to a buffer
+          // If there is no pose for the cloud then add it to a buffer (pointClouds_ is being pushed back at the end of this func)
           if (idx_cloud > idx_pose) {
             //   cloudBuffer.push_back(std::shared_ptr(cloud));
               std::cout << "No pose for the pointcloud   |  Buffer size:  " << cloudBuffer.size() << std::endl;
@@ -598,6 +601,7 @@ namespace structure_refinement {
       // Transform kdTree according to the BA pose
       // Eigen::Matrix3d rot = Eigen::Matrix3d::Identity();
       // Eigen::Vector3d trans = Eigen::Vector3d(20,20,20);
+      // The surfels should be transformed with the noise, so that they are consistent in a global frame (point cloud is in local)
       kdTree->applyTransform(lastPose.linear(), lastPose.translation());
       // Create a vector of leafes
       std::vector<TreeNodeTypePtr> leafes;
