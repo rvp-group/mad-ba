@@ -78,6 +78,8 @@ namespace structure_refinement {
     void publishPointClouds();
     void handleFactorGraph();
     void optimizeFactorGraph(srrg2_solver::FactorGraphPtr &);
+    void addNoiseToLastPose();
+    void addSurfelFactors(const srrg2_solver::FactorGraphPtr &);
 
    protected:
     using PointUnprojectorBase = srrg2_core::PointUnprojectorBase_<srrg2_core::PointNormalIntensity3fVectorCloud>;
