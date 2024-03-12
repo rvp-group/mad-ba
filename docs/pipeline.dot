@@ -9,17 +9,17 @@ digraph{
     gen_pointcloud [label="Generate point cloud\n for given pose"]
     add_pointcloud_noise [label = "Add noise to point cloud" shape=rectangle color="#ff6c02"]
     handle_pointcloud [label="Handle point cloud\n (Extract surfels, save cloud)"]
-    add_noise_to_poses [label="Add noise to poses\n", shape=rectangle, color="#ff6c02"] 
-    gen_odom -> handle_odom -> gen_pointcloud -> add_pointcloud_noise -> handle_pointcloud -> add_noise_to_poses
+    add_noise_to_poses [label="Add noise to poses\n (for algorithm validation)", shape=rectangle, color="#ff6c02"] 
+    gen_odom -> handle_odom -> gen_pointcloud -> add_pointcloud_noise -> add_noise_to_poses -> handle_pointcloud 
      gen_odom
     }
 
     subgraph cluster_2{
     node [style=filled, color="#00ffbf"];
     publish_cloud [label="Publish clouds in\n each pose's frame"]
-    publish_tf [label="Publish TF for each pose"]
+    publish_tf [label="Publish TF based\n on graph estimates"]
     create_graph [label="Create graph"]
-    add_noise_to_estimates[label="Add noise to graph estimates\n for visualization", shape=rectangle, color="#9090f5"]
+    add_noise_to_estimates[label="Add noise to graph estimates\n (for visualization)", shape=rectangle, color="#9090f5"]
     optimize_poses [label="Optimize poses"]
     publish_cloud_after [label = "Publish clouds in\n each pose's frame"]
     publish_tf_after [label="Publish TF for each pose"]
@@ -33,7 +33,9 @@ digraph{
     associate_surfels -> store_surfel
     }
 
-    add_noise_to_poses -> associate_surfels
+    handle_pointcloud -> associate_surfels
     store_surfel -> create_graph
-    
+    "Remarks:\n 
+    - point clouds are stored in local coordinate frame\n
+    - surfels are stored in the global coordinate frame\n"
 }

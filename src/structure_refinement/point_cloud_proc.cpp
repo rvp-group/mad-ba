@@ -77,7 +77,9 @@ namespace structure_refinement {
 
         visualizeCorrespondingSurfelsWithPoses();
         //   ros::Duration(5.0).sleep();
-        handleFactorGraph();
+        // handleFactorGraph();
+        handleFactorGraphBA();
+        // createBAGraph();
 
         //   visualizePointClouds();
         ros::Duration(2.0).sleep();
@@ -243,7 +245,7 @@ namespace structure_refinement {
   void PointCloudProc::visualizeCorrespondingSurfelsWithPoses() {
 
       int decimation = 1;
-      int surfelsToVis = 1000;
+      int surfelsToVis = 10000;
 
       unsigned int maxPoses = 0;
       for (unsigned int i = 0; i < surfels_.size(); i++) {
@@ -320,10 +322,10 @@ namespace structure_refinement {
       double maxDistance = 0.10;
       double maxDistanceNorm = 0.4;
       // Max angle between two surfels to consider the merge
-      double maxAngle = 2.0 * M_PI / 180.0;
+      double maxAngle = 5 * M_PI / 180.0;
 
     //   Eigen::Isometry3d surfelPose = Eigen::Isometry3d::Identity();
-      u_long markerColor = 0;
+      // u_long markerColor = 0;
     //   long surfelCnt = 0; 
     //   int decimation = 10;
 
@@ -342,6 +344,12 @@ namespace structure_refinement {
                 //   std::cout << "Mean of the leaf:  "<< leafI->mean_ << std::endl;
                   //   std::cout << "SurfelB size:  "  << surfelB->num_points_ << std::endl;
                   //   auto& surfelB = (kdTrees_.at(j))->bestMatchingLeafFast(surfelA->mean_);
+
+                  // Skips surfels with only 1 point, as they dont have the 2nd and 3rd eigenvector 
+                  // or rewrite it from the parent or use only first col of eigen matrix
+                  // if (leafI->num_points_ == 1 || leafJ->num_points_ == 1)
+                    // continue;
+
                   double distance = (leafJ->mean_ - leafI->mean_).norm();
                   double distanceNorm = abs((leafJ->mean_ - leafI->mean_).dot(leafI->eigenvectors_.col(0)));
                   if (distance < maxDistance || distanceNorm < maxDistanceNorm) {
@@ -621,7 +629,7 @@ namespace structure_refinement {
   void PointCloudProc::generateSyntheticOdometry(nav_msgs::Odometry & odomMsg) {
 
       Eigen::Isometry3d poseInc = Eigen::Isometry3d::Identity();
-      poseInc.translation() = Eigen::Vector3d(1.0, 1.35, 0.01);
+      poseInc.translation() = Eigen::Vector3d(1.0, 1.0, 0.01);
       double roll = 0.01, pitch = 0.03, yaw = 0.05;
       poseInc.linear() = (Eigen::AngleAxisd(roll, Eigen::Vector3d::UnitX()) *
                           Eigen::AngleAxisd(pitch, Eigen::Vector3d::UnitY()) *
@@ -853,6 +861,126 @@ namespace structure_refinement {
 
   }
 
+// BA-like factor graph
+void PointCloudProc::handleFactorGraphBA(){
+   // Create graph variable
+  srrg2_solver::FactorGraphPtr graph(new srrg2_solver::FactorGraph);
+  addPosesToGraphBA(graph);
+  addSurfelsToGraphBA(graph);
+
+  publishTFFromGraph(graph);
+  publishPointClouds();
+  publishTFFromGraph(graph);
+
+  // Optimize the graph
+  optimizeFactorGraph(graph);
+  ros::Duration(5.0).sleep();
+
+  publishTFFromGraph(graph);
+  publishPointClouds();
+  publishTFFromGraph(graph);
+}
+
+void PointCloudProc::addSurfelsToGraphBA(srrg2_solver::FactorGraphPtr& graph){
+
+    // Set lastID to the number of poses
+    static int64_t lastGraphId = poses_.size() - 1;
+
+    // Iterate through all surfels
+    for (const std::shared_ptr<Surfel>& surfel : surfels_) {
+
+      // Set containing ids of odom poses
+      std::set<uint> odomPoseIdSet;
+
+      // Create multiple subsurfel variables for each odomPoses_
+      auto surfelVar = std::make_shared<srrg2_solver::VariableSurfelAD>();
+      surfelVar->setGraphId(++lastGraphId);
+
+      // Set initial estimate
+      // ToDo: Average all the observed surfels
+      Eigen::Isometry3d surfelPose = Eigen::Isometry3d::Identity();
+      surfelPose.translation() = surfel->observations_.at(0).block<3, 1>(0, 3);
+      surfelPose.linear() = matrixBetween2Vectors(Eigen::Vector3d(1, 0, 0), surfel->observations_.at(0).block<3, 1>(0, 0));
+      surfelVar->setEstimate(surfelPose.cast<float>());
+      surfelVar->setStatus(srrg2_solver::VariableBase::Status::Fixed);
+
+      graph->addVariable(surfelVar);
+
+      // Iterate through all poses from which given surfel was registered
+      for (uint i = 0; i < surfel->odomPoses_.size(); i++) {
+
+        // Detect if given surfel has 2 or more observations from the same pose
+        uint odomPoseId = surfel->odomPosesIds_.at(i);
+        if (odomPoseIdSet.find(odomPoseId) != odomPoseIdSet.end())
+          continue;
+        // Add that pose id to a set
+        else
+          odomPoseIdSet.insert(odomPoseId);
+
+        // Create factor between pose and the surfel
+        // Eigen::Isometry3d surfelOdomPose = surfel->odomPoses_.at(i);
+        std::shared_ptr<srrg2_solver::SE3PoseSurfelQuaternionErrorFactorAD> poseSurfelFactor = std::make_shared<srrg2_solver::SE3PoseSurfelQuaternionErrorFactorAD>();
+        poseSurfelFactor->setVariableId(0, (int64_t)odomPoseId);
+        poseSurfelFactor->setVariableId(1, surfelVar->graphId());
+        // poses_ .at(odomPoseId) should be the same as surfel->odomPoses_(i)
+        if (poses_.at(odomPoseId).matrix() != surfel->odomPoses_.at(i).matrix())
+          std::cout << "Error: Poses stored in surfel and saved as odometetry don't match" << std::endl;
+
+        Eigen::Isometry3f odomPose = surfel->odomPoses_.at(i).cast<float>();
+        Eigen::Isometry3f surfelInMap = Eigen::Isometry3f::Identity();
+        surfelInMap.translation() = surfel->observations_.at(i).block<3,1>(0,3).cast<float>();
+        surfelInMap.linear() = matrixBetween2Vectors(Eigen::Vector3d(1, 0, 0), surfel->observations_.at(i).block<3, 1>(0, 0)).cast<float>();
+
+        poseSurfelFactor->setMeasurement(odomPose.inverse() * surfelInMap);
+
+        // Set information matrix
+        Eigen::Matrix<float, 1, 1> infMat = Eigen::Matrix<float, 1, 1>::Identity();
+        infMat *= 1;
+        poseSurfelFactor->setInformationMatrix(infMat);
+        // poseSurfelFactor->setInformationMatrix()
+
+        // Add factor to the graph
+        graph->addFactor(poseSurfelFactor);
+        // std::cout << "Added factor to graph" << std::endl;
+        // Connect subsurfels themselfes
+        // auto surfelSurfelFactor = std::make_shared<srrg2_solver::SE3Plane2PlaneErrorFactor>();
+        // surfelSurfelFactor->setVariableId(0, surfelVar->graphId()-1);
+        // surfelSurfelFactor->setVariableId(1, surfelVar->graphId());
+
+        // Eigen::Isometry3f surfelInSurfel = (surfel->odomPoses_.at(i).inverse() * surfelPose).cast<float>();
+        // surfelSurfelFactor->setMeasurement(surfelInSurfel);
+
+        // Set information matrix as Identity
+        // Eigen::Matrix<float, 4, 4> infMat = Eigen::Matrix<float, 4, 4>::Identity();
+        // surfelSurfelFactor->setInformationMatrix(infMat);
+
+        // Add factor to the graph
+        // graph->addFactor(surfelSurfelFactor);
+      }
+    }
+}
+
+void PointCloudProc::addPosesToGraphBA(srrg2_solver::FactorGraphPtr& graph) {
+
+  // Take all poses
+  for (uint idx = 0; idx < poses_.size(); idx++) {
+    // Create a new variable for each pose
+    auto poseVar = std::make_shared<srrg2_solver::VariableSE3QuaternionRightAD>();
+    // Set Id of a varaible
+    poseVar->setGraphId(idx);
+
+    // Set first variable as Fixed
+    // if (idx == 0)
+      // poseVar->setStatus(srrg2_solver::VariableBase::Status::Fixed);
+
+    // Set estimate with noise
+    poseVar->setEstimate(poses_.at(idx).cast<float>());
+
+    // Add variable to the graph
+    graph->addVariable(srrg2_solver::VariableBasePtr(poseVar));
+
+  }
+}
 
 void PointCloudProc::handleFactorGraph()
 {
@@ -864,7 +992,7 @@ void PointCloudProc::handleFactorGraph()
     createFactorGraph(graph);
     std::cout << "2a" << std::endl;
     // Set all factors related to the surfels
-    // addSurfelFactors(graph);
+    addSurfelFactors(graph);
     std::cout << "2b" << std::endl;
 
     // Visualize poses before the ptimization
@@ -875,6 +1003,7 @@ void PointCloudProc::handleFactorGraph()
     std::cout << "2c" << std::endl;
 
     // Visualize the point cloud before the optimizaton but after adding noise | To display PointCloud, the TF time must be later than time of PointCloud
+    publishTFFromGraph(graph);
     publishPointClouds();
     publishTFFromGraph(graph);
 
@@ -889,8 +1018,9 @@ void PointCloudProc::handleFactorGraph()
     afterOptimPoseArrayPub_.publish(poseArrayAfter);
 
     // Update the point cloud after the optimizaton | To display PointCloud, the TF time must be later than time of PointCloud
-    publishPointClouds();
-    publishTFFromGraph(graph);
+    // publishTFFromGraph(graph);
+    // publishPointClouds();
+    // publishTFFromGraph(graph);
     
 }
 

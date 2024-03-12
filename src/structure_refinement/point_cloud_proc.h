@@ -39,6 +39,11 @@
 #include <random>
 #include "surfel.h"
 #include "json.hpp"
+#include "srrg_solver/variables_and_factors/types_krzystof/instances.h"
+#include "srrg_solver/variables_and_factors/types_krzystof/variable_surfel.h"
+#include "srrg_solver/variables_and_factors/types_krzystof/se3_pose_surfel_factor_ad.h"
+
+
 
 
 namespace structure_refinement {
@@ -77,9 +82,12 @@ namespace structure_refinement {
     void publishTFFromGraph(const srrg2_solver::FactorGraphPtr &);
     void publishPointClouds();
     void handleFactorGraph();
+    void handleFactorGraphBA();
     void optimizeFactorGraph(srrg2_solver::FactorGraphPtr &);
     void addNoiseToLastPose();
     void addSurfelFactors(const srrg2_solver::FactorGraphPtr &);
+    void addPosesToGraphBA(srrg2_solver::FactorGraphPtr &);
+    void addSurfelsToGraphBA(srrg2_solver::FactorGraphPtr&);
 
    protected:
     using PointUnprojectorBase = srrg2_core::PointUnprojectorBase_<srrg2_core::PointNormalIntensity3fVectorCloud>;
