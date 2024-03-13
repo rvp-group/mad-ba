@@ -899,9 +899,11 @@ void PointCloudProc::addSurfelsToGraphBA(srrg2_solver::FactorGraphPtr& graph){
       // Set initial estimate
       // ToDo: Average all the observed surfels
       Eigen::Isometry3d surfelPose = Eigen::Isometry3d::Identity();
+      Eigen::Isometry3f rotationY = Eigen::Isometry3f::Identity();
+      rotationY.linear() << 0, 0, 1, 0, 1, 0, -1, 0, 0;
       surfelPose.translation() = surfel->observations_.at(0).block<3, 1>(0, 3);
       surfelPose.linear() = matrixBetween2Vectors(Eigen::Vector3d(1, 0, 0), surfel->observations_.at(0).block<3, 1>(0, 0));
-      surfelVar->setEstimate(surfelPose.cast<float>());
+      surfelVar->setEstimate(surfelPose.cast<float>() * rotationY);
       surfelVar->setStatus(srrg2_solver::VariableBase::Status::Fixed);
 
       graph->addVariable(surfelVar);
@@ -931,7 +933,7 @@ void PointCloudProc::addSurfelsToGraphBA(srrg2_solver::FactorGraphPtr& graph){
         surfelInMap.translation() = surfel->observations_.at(i).block<3,1>(0,3).cast<float>();
         surfelInMap.linear() = matrixBetween2Vectors(Eigen::Vector3d(1, 0, 0), surfel->observations_.at(i).block<3, 1>(0, 0)).cast<float>();
 
-        poseSurfelFactor->setMeasurement(odomPose.inverse() * surfelInMap);
+        poseSurfelFactor->setMeasurement(odomPose.inverse() * surfelInMap * rotationY);
 
         // Set information matrix
         Eigen::Matrix<float, 1, 1> infMat = Eigen::Matrix<float, 1, 1>::Identity();
@@ -1050,6 +1052,10 @@ void PointCloudProc::handleFactorGraph()
     std::cout << "stats\n\n";
     std::cout << stats << std::endl;
 
+    // std::cout << "Diagonal " << solver.getDiagonal() << std::endl;
+    // std::cout << "Block (0,0) " <<  
+    solver.H().blockAt(0,0)->print() ;
+    // << std::endl;
 
   }
 
