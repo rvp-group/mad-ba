@@ -67,15 +67,14 @@ namespace structure_refinement {
       static int msgCnt = -1;
       if (++msgCnt < 2 * cloudsToSkip) {
         return true;
-      } else if (msgCnt > 2 * (cloudsToSkip + cloudsToProcess)) {
+      } else if (msgCnt > 2 * (cloudsToSkip + cloudsToProcess) - 1) {
         // Publish results before exit
         //   publishCloudNormals(kdTreeLeafes_.size() - 1);
-        mergeSurfels();
         // publishCloudNormals(0);
         // publishCloudNormals(1);
         // publishCloudNormals(2);
 
-        visualizeCorrespondingSurfelsWithPoses();
+        // visualizeCorrespondingSurfelsWithPoses();
         //   ros::Duration(5.0).sleep();
         // handleFactorGraph();
         handleFactorGraphBA();
@@ -244,7 +243,7 @@ namespace structure_refinement {
 
   void PointCloudProc::visualizeCorrespondingSurfelsWithPoses() {
 
-      int decimation = 1;
+      int decimation = 20;
       int surfelsToVis = 10000;
 
       unsigned int maxPoses = 0;
@@ -319,8 +318,8 @@ namespace structure_refinement {
 
       // Parameters for merging
       // Max distance between two surfels to consider the merge
-      double maxDistance = 0.10;
-      double maxDistanceNorm = 0.4;
+      double maxDistance = 0.2;
+      double maxDistanceNorm = 0.6;
       // Max angle between two surfels to consider the merge
       double maxAngle = 5 * M_PI / 180.0;
 
@@ -863,28 +862,79 @@ namespace structure_refinement {
 
 // BA-like factor graph
 void PointCloudProc::handleFactorGraphBA(){
-   // Create graph variable
+
+  // Merge surfels (find correspondences)
+  mergeSurfels();
+  // Visualize the surfels
+  visualizeCorrespondingSurfelsWithPoses();
+
+  // Create graph variable
   srrg2_solver::FactorGraphPtr graph(new srrg2_solver::FactorGraph);
-  addPosesToGraphBA(graph);
+
+  // Add poses
+  addPosesToGraphBA(graph, poses_);
+  // Add surfels
   addSurfelsToGraphBA(graph);
+
+  // VIsualize point clouds
+  publishTFFromGraph(graph);
+  publishPointClouds();
+  publishTFFromGraph(graph);
+  ros::Duration(5.0).sleep();
+
+  // Save actual values of poses to calculate the increments afterwards
+  updatePosesInGraph(graph);
+
+  // Optimize the graph
+  optimizeFactorGraph(graph);
 
   publishTFFromGraph(graph);
   publishPointClouds();
   publishTFFromGraph(graph);
 
-  // Optimize the graph
-  optimizeFactorGraph(graph);
-  ros::Duration(5.0).sleep();
+  // Poses in graph are already updated, "only" surfels need update
+  // Clear existing surfels (surfel correspondences)
+  surfels_.clear();
+  
+  // Update kdTree and leafs (surfels) in the map frame
+  updateSurfelsPosition(graph, posesInGraph_);
 
+  // Merge and visualize surfels again
+  mergeSurfels();
+  visualizeCorrespondingSurfelsWithPoses();
+
+  // Remove all existing surfels from the graph
+  graph->clear();
+
+  // Add poses
+  addPosesToGraphBA(graph, posesInGraph_);
+  // Add surfels
+  addSurfelsToGraphBA(graph);
+
+  optimizeFactorGraph(graph);
+  
+  // updateSurfelsPosition(graph);
+  ros::Duration(5.0).sleep();
   publishTFFromGraph(graph);
   publishPointClouds();
   publishTFFromGraph(graph);
 }
 
+void PointCloudProc::updatePosesInGraph(srrg2_solver::FactorGraphPtr& graph) {
+  posesInGraph_.clear();
+  for (uint i = 0; i < poses_.size(); i++) {
+    srrg2_solver::VariableSE3QuaternionRight* varPose = dynamic_cast<srrg2_solver::VariableSE3QuaternionRight*>(graph->variable(i));
+    posesInGraph_.push_back(varPose->estimate().cast<double>());
+    if (!varPose) {
+      continue;
+    }
+  }
+}
+
 void PointCloudProc::addSurfelsToGraphBA(srrg2_solver::FactorGraphPtr& graph){
 
     // Set lastID to the number of poses
-    static int64_t lastGraphId = poses_.size() - 1;
+    int64_t lastGraphId = poses_.size() - 1;
 
     // Iterate through all surfels
     for (const std::shared_ptr<Surfel>& surfel : surfels_) {
@@ -962,10 +1012,10 @@ void PointCloudProc::addSurfelsToGraphBA(srrg2_solver::FactorGraphPtr& graph){
     }
 }
 
-void PointCloudProc::addPosesToGraphBA(srrg2_solver::FactorGraphPtr& graph) {
+void PointCloudProc::addPosesToGraphBA(srrg2_solver::FactorGraphPtr& graph, std::vector<Eigen::Isometry3d>& poseVect) {
 
   // Take all poses
-  for (uint idx = 0; idx < poses_.size(); idx++) {
+  for (uint idx = 0; idx < poseVect.size(); idx++) {
     // Create a new variable for each pose
     auto poseVar = std::make_shared<srrg2_solver::VariableSE3QuaternionRightAD>();
     // Set Id of a varaible
@@ -976,7 +1026,7 @@ void PointCloudProc::addPosesToGraphBA(srrg2_solver::FactorGraphPtr& graph) {
       // poseVar->setStatus(srrg2_solver::VariableBase::Status::Fixed);
 
     // Set estimate with noise
-    poseVar->setEstimate(poses_.at(idx).cast<float>());
+    poseVar->setEstimate(poseVect.at(idx).cast<float>());
 
     // Add variable to the graph
     graph->addVariable(srrg2_solver::VariableBasePtr(poseVar));
@@ -1026,6 +1076,19 @@ void PointCloudProc::handleFactorGraph()
     
 }
 
+void PointCloudProc::updateSurfelsPosition(srrg2_solver::FactorGraphPtr& graph, std::vector<Eigen::Isometry3d> & lastPosesInGraph) {
+  for (uint i = 0; i < kdTrees_.size(); i++) {
+    srrg2_solver::VariableSE3QuaternionRight* varPose = dynamic_cast<srrg2_solver::VariableSE3QuaternionRight*>(graph->variable(i));
+    if (!varPose) {
+      continue;
+    }
+    Eigen::Isometry3f poseInc = lastPosesInGraph.at(i).inverse().cast<float>() * varPose->estimate();
+
+    // It's enough to transform only kdTree_, as kdTreeLeafes_ contains pointers to them
+    kdTrees_.at(i)->applyTransform(poseInc.linear().cast<double>(), poseInc.translation().cast<double>());
+  }
+}
+
  void PointCloudProc::optimizeFactorGraph(srrg2_solver::FactorGraphPtr &graph){
 
     // Instanciate a solver
@@ -1033,7 +1096,7 @@ void PointCloudProc::handleFactorGraph()
     // Remove default termination criteria
     solver.param_termination_criteria.setValue(nullptr);
     // Set max number of iterations
-    solver.param_max_iterations.pushBack(50);
+    solver.param_max_iterations.pushBack(3);
     // Change iteration algorithm to LM
     std::shared_ptr<srrg2_solver::IterationAlgorithmLM> lm(new srrg2_solver::IterationAlgorithmLM);
     lm->param_user_lambda_init.setValue(1e-7);
@@ -1133,7 +1196,7 @@ void PointCloudProc::handleFactorGraph()
         surfelSurfelFactor->setVariableId(0, surfelVar->graphId()-1);
         // surfelSurfelFactor->setVariableId(1, surfelVar->graphId());
 
-        Eigen::Isometry3f surfelInSurfel = (surfel->odomPoses_.at(i).inverse() * surfelPose).cast<float>();
+        // Eigen::Isometry3f surfelInSurfel = (surfel->odomPoses_.at(i).inverse() * surfelPose).cast<float>();
         // surfelSurfelFactor->setMeasurement(surfelInSurfel);
 
         // Set information matrix as Identity

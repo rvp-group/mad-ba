@@ -26,6 +26,7 @@
 namespace structure_refinement {
 using namespace srrg2_core;
 
+// This should be rather named CorrespondingSurfels or sth
 class Surfel : public srrg2_core::MessageSinkBase {
     static unsigned int idCounter;
 

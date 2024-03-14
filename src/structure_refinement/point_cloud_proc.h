@@ -86,8 +86,10 @@ namespace structure_refinement {
     void optimizeFactorGraph(srrg2_solver::FactorGraphPtr &);
     void addNoiseToLastPose();
     void addSurfelFactors(const srrg2_solver::FactorGraphPtr &);
-    void addPosesToGraphBA(srrg2_solver::FactorGraphPtr &);
+    void addPosesToGraphBA(srrg2_solver::FactorGraphPtr &, std::vector<Eigen::Isometry3d>&);
     void addSurfelsToGraphBA(srrg2_solver::FactorGraphPtr&);
+    void updateSurfelsPosition(srrg2_solver::FactorGraphPtr&, std::vector<Eigen::Isometry3d>&);
+    void updatePosesInGraph(srrg2_solver::FactorGraphPtr &);
 
    protected:
     using PointUnprojectorBase = srrg2_core::PointUnprojectorBase_<srrg2_core::PointNormalIntensity3fVectorCloud>;
@@ -106,6 +108,7 @@ namespace structure_refinement {
     std::vector<std::vector<TreeNodeTypePtr>> kdTreeLeafes_;  // Leafes from the subsequential kd-trees - Index corresponds to pose index
     std::vector<std::shared_ptr<TreeNodeType>> kdTrees_;      // Kd-trees created from subsequential point clouds - Index corresponds to pose index | Probably I don't need them
     std::vector<Eigen::Isometry3d> poses_;
+    std::vector<Eigen::Isometry3d> posesInGraph_;
 
     std::vector<std::shared_ptr<Surfel>> surfels_; // Vector of all the surfels. Indexes do NOT correspond to anything else
     std::vector<sensor_msgs::PointCloud2> rosPointClouds_; // Vector of point clouds for vizualization, as Rviz sometimes doesn't display them
