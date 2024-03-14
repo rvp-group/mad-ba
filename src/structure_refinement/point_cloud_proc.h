@@ -88,7 +88,7 @@ namespace structure_refinement {
     void addSurfelFactors(const srrg2_solver::FactorGraphPtr &);
     void addPosesToGraphBA(srrg2_solver::FactorGraphPtr &, std::vector<Eigen::Isometry3d>&);
     void addSurfelsToGraphBA(srrg2_solver::FactorGraphPtr&);
-    void updateSurfelsPosition(srrg2_solver::FactorGraphPtr&, std::vector<Eigen::Isometry3d>&);
+    void updateLeafsPosition(srrg2_solver::FactorGraphPtr&, std::vector<Eigen::Isometry3d>&);
     void updatePosesInGraph(srrg2_solver::FactorGraphPtr &);
 
    protected:

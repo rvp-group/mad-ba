@@ -396,6 +396,7 @@ namespace structure_refinement {
                               observationI.block<3, 3>(0, 0) = leafI->eigenvectors_;
                               observationI.block<3, 1>(0, 3) = leafI->mean_;
                               observationI.block<3, 1>(0, 4) = leafI->bbox_;
+  3323232                            // Error is heree Change it
                               surfel->addObservation(poses_.at(i), i, observationI);
                           }
 
@@ -405,6 +406,7 @@ namespace structure_refinement {
                               observationJ.block<3, 3>(0, 0) = leafJ->eigenvectors_;
                               observationJ.block<3, 1>(0, 3) = leafJ->mean_;
                               observationJ.block<3, 1>(0, 4) = leafJ->bbox_;
+  3213213123 error here
                               surfel->addObservation(poses_.at(j), j, observationJ);
                           }
 
@@ -860,74 +862,75 @@ namespace structure_refinement {
 
   }
 
-// BA-like factor graph
-void PointCloudProc::handleFactorGraphBA(){
+  // BA-like factor graph
+  void PointCloudProc::handleFactorGraphBA() {
+    // Merge surfels (find correspondences)
+    // mergeSurfels();
+    // Visualize the surfels
+    // visualizeCorrespondingSurfelsWithPoses();
 
-  // Merge surfels (find correspondences)
-  mergeSurfels();
-  // Visualize the surfels
-  visualizeCorrespondingSurfelsWithPoses();
+    // Create graph variable
+    srrg2_solver::FactorGraphPtr graph(new srrg2_solver::FactorGraph);
 
-  // Create graph variable
-  srrg2_solver::FactorGraphPtr graph(new srrg2_solver::FactorGraph);
+    for (int i = 0; i < 5; i++) {
+      std::cout << "Iteration:  "  << i << std::endl;
+      // Clear the graph
+      graph->clear();
+      // Clear existing surfels (surfel correspondences)
+      surfels_.clear();
 
-  // Add poses
-  addPosesToGraphBA(graph, poses_);
-  // Add surfels
-  addSurfelsToGraphBA(graph);
+      // Add poses
+      if (i == 0)
+        addPosesToGraphBA(graph, poses_);
+      else
+        addPosesToGraphBA(graph, posesInGraph_);
 
-  // VIsualize point clouds
-  publishTFFromGraph(graph);
-  publishPointClouds();
-  publishTFFromGraph(graph);
-  ros::Duration(5.0).sleep();
+      // Merge and visualize surfels
+      mergeSurfels();
+      visual_tools_->deleteAllMarkers();
+      visualizeCorrespondingSurfelsWithPoses();
 
-  // Save actual values of poses to calculate the increments afterwards
-  updatePosesInGraph(graph);
+      // Add surfels
+      addSurfelsToGraphBA(graph);
 
-  // Optimize the graph
-  optimizeFactorGraph(graph);
+      // Visualize point clouds
+      publishTFFromGraph(graph);
+      publishPointClouds();
+      publishTFFromGraph(graph);
 
-  publishTFFromGraph(graph);
-  publishPointClouds();
-  publishTFFromGraph(graph);
+      // Save actual values of poses to calculate the increments afterwards
+      // if (i == 0)
+      updatePosesInGraph(graph);
 
-  // Poses in graph are already updated, "only" surfels need update
-  // Clear existing surfels (surfel correspondences)
-  surfels_.clear();
-  
-  // Update kdTree and leafs (surfels) in the map frame
-  updateSurfelsPosition(graph, posesInGraph_);
+      // Optimize the graph
+      optimizeFactorGraph(graph);
 
-  // Merge and visualize surfels again
-  mergeSurfels();
-  visualizeCorrespondingSurfelsWithPoses();
+      // Update kdTree and leafs (surfels) in the map frame, based on actual poses and poses before optimization
+      updateLeafsPosition(graph, posesInGraph_);
 
-  // Remove all existing surfels from the graph
-  graph->clear();
+      // Update for next iteration
+      updatePosesInGraph(graph);
 
-  // Add poses
-  addPosesToGraphBA(graph, posesInGraph_);
-  // Add surfels
-  addSurfelsToGraphBA(graph);
+      ros::Duration(15.0).sleep();
+    }
 
-  optimizeFactorGraph(graph);
-  
-  // updateSurfelsPosition(graph);
-  ros::Duration(5.0).sleep();
-  publishTFFromGraph(graph);
-  publishPointClouds();
-  publishTFFromGraph(graph);
-}
+    // Visualize point clouds
+    publishTFFromGraph(graph);
+    publishPointClouds();
+    publishTFFromGraph(graph);
+
+  }
 
 void PointCloudProc::updatePosesInGraph(srrg2_solver::FactorGraphPtr& graph) {
   posesInGraph_.clear();
   for (uint i = 0; i < poses_.size(); i++) {
     srrg2_solver::VariableSE3QuaternionRight* varPose = dynamic_cast<srrg2_solver::VariableSE3QuaternionRight*>(graph->variable(i));
-    posesInGraph_.push_back(varPose->estimate().cast<double>());
     if (!varPose) {
+      std::cout << "Error in updatePosesInGraph" << std::endl;
       continue;
     }
+    posesInGraph_.push_back(varPose->estimate().cast<double>());
+
   }
 }
 
@@ -1076,16 +1079,16 @@ void PointCloudProc::handleFactorGraph()
     
 }
 
-void PointCloudProc::updateSurfelsPosition(srrg2_solver::FactorGraphPtr& graph, std::vector<Eigen::Isometry3d> & lastPosesInGraph) {
+void PointCloudProc::updateLeafsPosition(srrg2_solver::FactorGraphPtr& graph, std::vector<Eigen::Isometry3d> & lastPosesInGraph) {
   for (uint i = 0; i < kdTrees_.size(); i++) {
     srrg2_solver::VariableSE3QuaternionRight* varPose = dynamic_cast<srrg2_solver::VariableSE3QuaternionRight*>(graph->variable(i));
     if (!varPose) {
       continue;
     }
-    Eigen::Isometry3f poseInc = lastPosesInGraph.at(i).inverse().cast<float>() * varPose->estimate();
-
+    Eigen::Isometry3d poseInc = lastPosesInGraph.at(i).inverse() * varPose->estimate().cast<double>();
+    std::cout << "Change in pose #" << i << std::endl << poseInc.matrix() << std::endl;
     // It's enough to transform only kdTree_, as kdTreeLeafes_ contains pointers to them
-    kdTrees_.at(i)->applyTransform(poseInc.linear().cast<double>(), poseInc.translation().cast<double>());
+    kdTrees_.at(i)->applyTransform(poseInc.linear(), poseInc.translation());  
   }
 }
 
@@ -1278,8 +1281,8 @@ void PointCloudProc::updateSurfelsPosition(srrg2_solver::FactorGraphPtr& graph, 
     // Define the noise added to the poses
     static std::random_device rd;                                  // obtain a random number from hardware
     static std::mt19937 gen(rd());                                 // seed the generator
-    static std::normal_distribution<double> noiseTrans(0.0, 0.3);  // define the noise for translation
-    static std::normal_distribution<double> noiseRot(0.0, 1.0 * M_PI / 180.0);   // define the noise for rotation
+    static std::normal_distribution<double> noiseTrans(0.0, 0.4);  // define the noise for translation
+    static std::normal_distribution<double> noiseRot(0.0, 2.0 * M_PI / 180.0);   // define the noise for rotation
 
     // Take all poses
     Eigen::Isometry3d perturbation = Eigen::Isometry3d::Identity();
@@ -1295,9 +1298,18 @@ void PointCloudProc::updateSurfelsPosition(srrg2_solver::FactorGraphPtr& graph, 
 
     // Add noise to the pose
     Eigen::Isometry3d constPerturbation = Eigen::Isometry3d::Identity();
-    constPerturbation.translation() = Eigen::Vector3d(4, 4, 4);
-    pose = pose *perturbation;
-    // pose = constPerturbation * pose;
+    constPerturbation.translation() = Eigen::Vector3d(0.6, 0.8, 0.9);
+    constPerturbation.linear() = (Eigen::AngleAxisd(5.0 * M_PI / 180.0, Eigen::Vector3d::UnitX()) *
+                                  Eigen::AngleAxisd(5.0 * M_PI / 180.0, Eigen::Vector3d::UnitY()) *
+                                  Eigen::AngleAxisd(5.0 * M_PI / 180.0, Eigen::Vector3d::UnitZ()))
+                                     .toRotationMatrix();
+
+    // pose = pose *perturbation;
+
+    // Add noise only to the second pose
+    static int cnt = 0;
+    if (cnt++ == 1)
+      pose = constPerturbation * pose;
     // std::cout << "Pose with noise  " << pose.matrix() << std::endl;
     // }
   }
