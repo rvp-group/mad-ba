@@ -291,7 +291,7 @@ namespace structure_refinement {
                       visualizeSurfel(leaf, markerColor % 14);
 
                       // Add line between pose and surfel
-                      Eigen::Isometry3d trans = poses_.at(poseId.first);
+                      Eigen::Isometry3d trans = surfels_.at(i)->odomPoses_.at(poseId.first);
                       visual_tools_->publishLine(trans.translation(), leaf->mean_, static_cast<rviz_visual_tools::colors>(markerColor % 14));
                   }
               }
@@ -396,18 +396,22 @@ namespace structure_refinement {
                               observationI.block<3, 3>(0, 0) = leafI->eigenvectors_;
                               observationI.block<3, 1>(0, 3) = leafI->mean_;
                               observationI.block<3, 1>(0, 4) = leafI->bbox_;
-  3323232                            // Error is heree Change it
-                              surfel->addObservation(poses_.at(i), i, observationI);
+                              // if (posesInGraph_.size() == 0)
+                                // surfel->addObservation(poses_.at(i), i, observationI);
+                              // else
+                                surfel->addObservation(posesInGraph_.at(i), i, observationI);
                           }
 
                           // Create observation for given surfel from pose J
                           if (!foundSurfelJ) {
-                              Eigen::Matrix<double, 3, 5> observationJ = Eigen::Matrix<double, 3, 5>::Identity();
-                              observationJ.block<3, 3>(0, 0) = leafJ->eigenvectors_;
-                              observationJ.block<3, 1>(0, 3) = leafJ->mean_;
-                              observationJ.block<3, 1>(0, 4) = leafJ->bbox_;
-  3213213123 error here
-                              surfel->addObservation(poses_.at(j), j, observationJ);
+                            Eigen::Matrix<double, 3, 5> observationJ = Eigen::Matrix<double, 3, 5>::Identity();
+                            observationJ.block<3, 3>(0, 0) = leafJ->eigenvectors_;
+                            observationJ.block<3, 1>(0, 3) = leafJ->mean_;
+                            observationJ.block<3, 1>(0, 4) = leafJ->bbox_;
+                            // if (posesInGraph_.size() == 0)
+                              // surfel->addObservation(poses_.at(j), j, observationJ);
+                            // else
+                              surfel->addObservation(posesInGraph_.at(j), j, observationJ);
                           }
 
                           // ToDo: make Surfel method for this
@@ -885,6 +889,10 @@ namespace structure_refinement {
       else
         addPosesToGraphBA(graph, posesInGraph_);
 
+      // Save actual values of poses to calculate the increments afterwards
+      // Update it here, so that in mergeSurfels() function I can use posesInGraph_
+      updatePosesInGraph(graph);
+
       // Merge and visualize surfels
       mergeSurfels();
       visual_tools_->deleteAllMarkers();
@@ -898,9 +906,7 @@ namespace structure_refinement {
       publishPointClouds();
       publishTFFromGraph(graph);
 
-      // Save actual values of poses to calculate the increments afterwards
       // if (i == 0)
-      updatePosesInGraph(graph);
 
       // Optimize the graph
       optimizeFactorGraph(graph);
@@ -911,7 +917,7 @@ namespace structure_refinement {
       // Update for next iteration
       updatePosesInGraph(graph);
 
-      ros::Duration(15.0).sleep();
+      ros::Duration(5.0).sleep();
     }
 
     // Visualize point clouds
@@ -927,7 +933,7 @@ void PointCloudProc::updatePosesInGraph(srrg2_solver::FactorGraphPtr& graph) {
     srrg2_solver::VariableSE3QuaternionRight* varPose = dynamic_cast<srrg2_solver::VariableSE3QuaternionRight*>(graph->variable(i));
     if (!varPose) {
       std::cout << "Error in updatePosesInGraph" << std::endl;
-      continue;
+      exit(0);
     }
     posesInGraph_.push_back(varPose->estimate().cast<double>());
 
@@ -978,7 +984,7 @@ void PointCloudProc::addSurfelsToGraphBA(srrg2_solver::FactorGraphPtr& graph){
         poseSurfelFactor->setVariableId(0, (int64_t)odomPoseId);
         poseSurfelFactor->setVariableId(1, surfelVar->graphId());
         // poses_ .at(odomPoseId) should be the same as surfel->odomPoses_(i)
-        if (poses_.at(odomPoseId).matrix() != surfel->odomPoses_.at(i).matrix())
+        if (posesInGraph_.at(odomPoseId).matrix() != surfel->odomPoses_.at(i).matrix())
           std::cout << "Error: Poses stored in surfel and saved as odometetry don't match" << std::endl;
 
         Eigen::Isometry3f odomPose = surfel->odomPoses_.at(i).cast<float>();
@@ -1032,7 +1038,7 @@ void PointCloudProc::addPosesToGraphBA(srrg2_solver::FactorGraphPtr& graph, std:
     poseVar->setEstimate(poseVect.at(idx).cast<float>());
 
     // Add variable to the graph
-    graph->addVariable(srrg2_solver::VariableBasePtr(poseVar));
+    graph->addVariable(poseVar);
 
   }
 }
@@ -1085,9 +1091,12 @@ void PointCloudProc::updateLeafsPosition(srrg2_solver::FactorGraphPtr& graph, st
     if (!varPose) {
       continue;
     }
-    Eigen::Isometry3d poseInc = lastPosesInGraph.at(i).inverse() * varPose->estimate().cast<double>();
-    std::cout << "Change in pose #" << i << std::endl << poseInc.matrix() << std::endl;
+    // std::cout << "Id of variable   "  << varPose->graphId() << std::endl;
+    Eigen::Isometry3d poseInc = varPose->estimate().cast<double>() * lastPosesInGraph.at(i).inverse() ;
+    // poseInc.matrix() *= 0.1;
+    // std::cout << "Change in pose #" << i << std::endl << poseInc.matrix() << std::endl;
     // It's enough to transform only kdTree_, as kdTreeLeafes_ contains pointers to them
+    // varPose->estimate() * lastPoseInGraph.inverse() * 
     kdTrees_.at(i)->applyTransform(poseInc.linear(), poseInc.translation());  
   }
 }
@@ -1250,6 +1259,11 @@ void PointCloudProc::updateLeafsPosition(srrg2_solver::FactorGraphPtr& graph, st
       if (!varPose) {
         continue;
       }
+      srrg2_solver::VariableSE3QuaternionRight* varPose2 = dynamic_cast<srrg2_solver::VariableSE3QuaternionRight*>(graph->variable(cnt));
+      if (!varPose->estimate().matrix().isApprox(varPose2->estimate().matrix())) {
+        std::cout << "Error in publishTFFromGraph" << std::endl;
+        exit(0);
+      }
       geometry_msgs::TransformStamped tfStamped;
       tfStamped.header.stamp = ros::Time::now();
       tfStamped.header.frame_id = "map";
@@ -1267,6 +1281,9 @@ void PointCloudProc::updateLeafsPosition(srrg2_solver::FactorGraphPtr& graph, st
       tfStamped.transform.rotation.z = quat.z();
       tfStamped.transform.rotation.w = quat.w();
       transformBroadcaster_.sendTransform(tfStamped);
+
+      // Compare the pose with GT
+      // std::cout << "GT pose  " << cnt-1 << std::endl << posesWithoutNoise_.at(cnt-1).matrix() << std::endl << "Actual Pose " << std::endl << pose.matrix() << std::endl;
     }
   }
 
@@ -1304,8 +1321,10 @@ void PointCloudProc::updateLeafsPosition(srrg2_solver::FactorGraphPtr& graph, st
                                   Eigen::AngleAxisd(5.0 * M_PI / 180.0, Eigen::Vector3d::UnitZ()))
                                      .toRotationMatrix();
 
+    // Save pose without noise
+    posesWithoutNoise_.push_back(pose);
     // pose = pose *perturbation;
-
+    
     // Add noise only to the second pose
     static int cnt = 0;
     if (cnt++ == 1)
