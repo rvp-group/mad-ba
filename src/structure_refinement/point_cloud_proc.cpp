@@ -19,6 +19,8 @@
 #include <cstdio>
 #include <tf2/LinearMath/Quaternion.h>
 #include <cmath>
+#include <rviz/SendFilePath.h>
+
 
 namespace structure_refinement {
   using namespace srrg2_core;
@@ -51,6 +53,8 @@ namespace structure_refinement {
       static_transformStamped.child_frame_id = "map";
       static_transformStamped.transform.rotation.w = 1.0;
       staticBrd.sendTransform(static_transformStamped);
+
+      clientRviz_ = nh_.serviceClient<rviz::SendFilePath>("/my_rviz/load_config_discarding_changes");
   }
 
   PointCloudProc::~PointCloudProc()  {
@@ -63,7 +67,7 @@ namespace structure_refinement {
 
       // Skip first n messages and process only m first clouds
       int cloudsToSkip = 100;
-      int cloudsToProcess = 2;
+      int cloudsToProcess = 6;
       static int msgCnt = -1;
       if (++msgCnt < 2 * cloudsToSkip) {
         return true;
@@ -289,9 +293,14 @@ namespace structure_refinement {
                   for (auto const& surfelId : poseId.second) {
                       TreeNodeType* leaf = kdTreeLeafes_[poseId.first].at(surfelId);
                       visualizeSurfel(leaf, markerColor % 14);
-
                       // Add line between pose and surfel
-                      Eigen::Isometry3d trans = surfels_.at(i)->odomPoses_.at(poseId.first);
+                      // Eigen::Isometry3d trans = surfels_.at(i)->odomPoses_.at(poseId.first);
+                      Eigen::Isometry3d trans = Eigen::Isometry3d::Identity();
+                      if (posesInGraph_.size() == 0)
+                        trans = poses_.at(poseId.first);
+                      else
+                        trans = posesInGraph_.at(poseId.first);
+
                       visual_tools_->publishLine(trans.translation(), leaf->mean_, static_cast<rviz_visual_tools::colors>(markerColor % 14));
                   }
               }
@@ -319,7 +328,7 @@ namespace structure_refinement {
       // Parameters for merging
       // Max distance between two surfels to consider the merge
       double maxDistance = 0.2;
-      double maxDistanceNorm = 0.6;
+      double maxDistanceNorm = 1.0;
       // Max angle between two surfels to consider the merge
       double maxAngle = 5 * M_PI / 180.0;
 
@@ -373,6 +382,8 @@ namespace structure_refinement {
                           std::shared_ptr<Surfel> surfel;
                           bool foundSurfelI = false, foundSurfelJ = false;
                           for (std::shared_ptr<Surfel> tmpSurfel : surfels_) {
+
+                            // If that surfel already exists in pose I:
                               if (tmpSurfel->checkIfsurfelIdExists(i, idLeafI)) {
                                   surfel = tmpSurfel;
                                   foundSurfelI = true;
@@ -599,6 +610,16 @@ namespace structure_refinement {
       }
   }
 
+  void PointCloudProc::reloadRviz() {
+    rviz::SendFilePath srv;
+    srv.request.path.data = ros::package::getPath("structure_refinement") + "/rviz_config/structure_refinement.rviz";
+    if (clientRviz_.call(srv)) {
+      ROS_INFO("Sum: %d", (bool)srv.response.success);
+    } else {
+      ROS_ERROR("Failed to call service reloadRviz");
+    }
+  }
+
   void PointCloudProc::createKDTree(std::vector<Eigen::Vector3d>& cloud, const Eigen::Isometry3d& lastPose) {
       using ContainerType = std::vector<Eigen::Vector3d>;
       using TreeNodeType = TreeNode3D<ContainerType>;
@@ -640,6 +661,11 @@ namespace structure_refinement {
                           Eigen::AngleAxisd(pitch, Eigen::Vector3d::UnitY()) *
                           Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()))
                              .toRotationMatrix();
+
+      // Change inc direction after 5 poses
+      static int cnt = 0;
+      if (cnt++ > 5)
+        poseInc.translation().x() *= -1;
 
       // Calculate new pose
       Eigen::Isometry3d newPose = Eigen::Isometry3d::Identity();
@@ -876,7 +902,7 @@ namespace structure_refinement {
     // Create graph variable
     srrg2_solver::FactorGraphPtr graph(new srrg2_solver::FactorGraph);
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
       std::cout << "Iteration:  "  << i << std::endl;
       // Clear the graph
       graph->clear();
@@ -893,6 +919,15 @@ namespace structure_refinement {
       // Update it here, so that in mergeSurfels() function I can use posesInGraph_
       updatePosesInGraph(graph);
 
+      // Visualize point clouds
+    //  reloadRviz();
+     // std::cout << "Reloading Rviz" << std::endl;
+          //  ros::Duration(3.0).sleep();
+      publishTFFromGraph(graph);
+      publishPointClouds();
+      publishTFFromGraph(graph);
+
+
       // Merge and visualize surfels
       mergeSurfels();
       visual_tools_->deleteAllMarkers();
@@ -901,10 +936,6 @@ namespace structure_refinement {
       // Add surfels
       addSurfelsToGraphBA(graph);
 
-      // Visualize point clouds
-      publishTFFromGraph(graph);
-      publishPointClouds();
-      publishTFFromGraph(graph);
 
       // if (i == 0)
 
@@ -917,7 +948,7 @@ namespace structure_refinement {
       // Update for next iteration
       updatePosesInGraph(graph);
 
-      ros::Duration(5.0).sleep();
+      ros::Duration(1.0).sleep();
     }
 
     // Visualize point clouds
@@ -1031,8 +1062,8 @@ void PointCloudProc::addPosesToGraphBA(srrg2_solver::FactorGraphPtr& graph, std:
     poseVar->setGraphId(idx);
 
     // Set first variable as Fixed
-    // if (idx == 0)
-      // poseVar->setStatus(srrg2_solver::VariableBase::Status::Fixed);
+    if (idx == 0)
+      poseVar->setStatus(srrg2_solver::VariableBase::Status::Fixed);
 
     // Set estimate with noise
     poseVar->setEstimate(poseVect.at(idx).cast<float>());
@@ -1323,12 +1354,14 @@ void PointCloudProc::updateLeafsPosition(srrg2_solver::FactorGraphPtr& graph, st
 
     // Save pose without noise
     posesWithoutNoise_.push_back(pose);
-    // pose = pose *perturbation;
-    
-    // Add noise only to the second pose
     static int cnt = 0;
-    if (cnt++ == 1)
-      pose = constPerturbation * pose;
+    if (cnt++ != 0)
+      pose = pose * perturbation;
+
+    // Add noise only to the second pose
+    // static int cnt = 0;
+    // if (cnt++ == 1)
+      // pose = constPerturbation * pose;
     // std::cout << "Pose with noise  " << pose.matrix() << std::endl;
     // }
   }

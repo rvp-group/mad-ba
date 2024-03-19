@@ -90,6 +90,7 @@ namespace structure_refinement {
     void addSurfelsToGraphBA(srrg2_solver::FactorGraphPtr&);
     void updateLeafsPosition(srrg2_solver::FactorGraphPtr&, std::vector<Eigen::Isometry3d>&);
     void updatePosesInGraph(srrg2_solver::FactorGraphPtr &);
+    void reloadRviz();
 
    protected:
     using PointUnprojectorBase = srrg2_core::PointUnprojectorBase_<srrg2_core::PointNormalIntensity3fVectorCloud>;
@@ -109,6 +110,7 @@ namespace structure_refinement {
     std::vector<std::shared_ptr<TreeNodeType>> kdTrees_;      // Kd-trees created from subsequential point clouds - Index corresponds to pose index | Probably I don't need them
     std::vector<Eigen::Isometry3d> poses_;
     std::vector<Eigen::Isometry3d> posesInGraph_;
+    std::vector<Eigen::Isometry3d> posesWithoutNoise_;
 
     std::vector<std::shared_ptr<Surfel>> surfels_; // Vector of all the surfels. Indexes do NOT correspond to anything else
     std::vector<sensor_msgs::PointCloud2> rosPointClouds_; // Vector of point clouds for vizualization, as Rviz sometimes doesn't display them
@@ -127,6 +129,7 @@ namespace structure_refinement {
 
     // Rviz Visualization Tools
     rviz_visual_tools::RvizVisualToolsPtr visual_tools_;
+    ros::ServiceClient clientRviz_;
   };
 
   using PointCloudProcPtr = std::shared_ptr<PointCloudProc>;
