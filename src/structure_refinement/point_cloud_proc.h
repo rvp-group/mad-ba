@@ -73,6 +73,7 @@ namespace structure_refinement {
     void visualizeSurfelPoses();
     void visualizeCorrespondingSurfelsWithPoses();
     void saveSurfelsTofile();
+    void filterSurfels();
 
     int findLeafId(unsigned int, TreeNodeTypePtr);  // Find the id of a leaf in a given kdTree
     void generateSyntheticPointCloud(sensor_msgs::PointCloud2 &);
@@ -80,6 +81,8 @@ namespace structure_refinement {
     void createFactorGraph(srrg2_solver::FactorGraphPtr &);
     void createPoseArrayfromGraph(geometry_msgs::PoseArray &, const srrg2_solver::FactorGraphPtr &);
     void publishTFFromGraph(const srrg2_solver::FactorGraphPtr &);
+    void publishSurfFromGraph(const srrg2_solver::FactorGraphPtr & );
+
     void publishPointClouds();
     void handleFactorGraph();
     void handleFactorGraphBA();
@@ -88,6 +91,8 @@ namespace structure_refinement {
     void addSurfelFactors(const srrg2_solver::FactorGraphPtr &);
     void addPosesToGraphBA(srrg2_solver::FactorGraphPtr &, std::vector<Eigen::Isometry3d>&);
     void addSurfelsToGraphBA(srrg2_solver::FactorGraphPtr&);
+    void addSynthSurfelsToGraphBA(srrg2_solver::FactorGraphPtr&, Eigen::Isometry3d);
+
     void updateLeafsPosition(srrg2_solver::FactorGraphPtr&, std::vector<Eigen::Isometry3d>&);
     void updatePosesInGraph(srrg2_solver::FactorGraphPtr &);
     void reloadRviz();

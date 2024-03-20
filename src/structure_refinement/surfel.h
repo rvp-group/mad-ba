@@ -37,6 +37,8 @@ class Surfel : public srrg2_core::MessageSinkBase {
     bool putMessage(srrg2_core::BaseSensorMessagePtr msg) override;
     void addObservation(Eigen::Isometry3d&, unsigned int, Eigen::Matrix<double, 3, 5>&);  // Add new observation
     bool checkIfsurfelIdExists(unsigned int, unsigned int);                               // Checks whether such leafId was already associated
+    bool checkIfPoseExists(unsigned int );
+
     nlohmann::json getJson();
 
     //  protected:

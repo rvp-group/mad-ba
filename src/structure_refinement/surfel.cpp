@@ -29,6 +29,13 @@ bool Surfel::checkIfsurfelIdExists(unsigned int poseId, unsigned int leafId) {
     return false;
 }
 
+bool Surfel::checkIfPoseExists(unsigned int poseId) {
+  // Check if that poseId exists in the map
+  if (poseSurfelsIds_.count(poseId))
+    return true;
+  return false;
+}
+
 nlohmann::json Surfel::getJson() {
     // Create Json object
     nlohmann::json j;
