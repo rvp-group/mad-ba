@@ -401,24 +401,71 @@ namespace structure_refinement {
                           // If correspondence found then check if that surfel already exists
                           std::shared_ptr<Surfel> surfel;
                           bool foundSurfelI = false, foundSurfelJ = false;
-                          for (std::shared_ptr<Surfel> tmpSurfel : surfels_) {
-
+                          int cnt = -1;
+                          int cntI = -1, cntJ = -1;
+                          bool skip = false;
+                          for (std::shared_ptr<Surfel> & tmpSurfel : surfels_) {
+                            cnt++;
                             // If that surfel already exists in pose I:
                               if (tmpSurfel->checkIfsurfelIdExists(i, idLeafI)) {
                                   surfel = tmpSurfel;
                                   foundSurfelI = true;
-                                  break;
+                                  // break;
+                                  cntI = cnt;
                               }
                               if (tmpSurfel->checkIfsurfelIdExists(j, idLeafJ)) {
                                   surfel = tmpSurfel;
                                   foundSurfelJ = true;
-                                  break;
+                                  cntJ = cnt;
                               }
+                              // If both leafs already belong to the same surfel
+                              if (foundSurfelI && foundSurfelJ) {
+                                if (cntI == cntJ) {
+                                  skip = true;
+                                  // std::cout << "Leafs belong to the same surfel " << std::endl;
+                                  break;
+                                }
+                                else
+                                {
+                                  // std::cout << "Leafs belong to two different surfels " << std::endl;
+                                  // ToDo Merge them ?
+                                  skip = true;
+                                  break;
+                                }
+                              }
+                              // if (foundSurfelI != foundSurfelI) {
+                              //   std::cout << "Different" << std::endl;
+                              // }
+                              // if (foundSurfelI) {
+                              //   std::cout << "found I "  << cnt << std::endl;
+                              // }
+                              // if (foundSurfelJ)
+                              //     std::cout << "found J " << cnt << std::endl;
+
+                              // if (foundSurfelI || foundSurfelJ)
+                              //   break;
                           }
+                          if (skip)
+                            continue;
+
+                          // Check if given surfel has already correspondence in pose I or J
+                          // At this point only one foundSurfel should be true
+                          if (surfel) {
+                            if (foundSurfelI)
+                              if (surfel->checkIfPoseExists(j))
+                                continue;
+
+                            if (foundSurfelJ)
+                              if (surfel->checkIfPoseExists(i))
+                                continue;
+                          }
+                          //
+                          // if (foundSurfelI && foundSurfelJ)
+                          // std::cout << "Oh fuck" << std::endl;
 
                           // If surfel doesnt exists then create it
                           if (!surfel) {
-                              surfel = std::make_shared<Surfel>();
+                            surfel = std::make_shared<Surfel>();
                           }
 
                           // Create observation for given surfel from pose I
