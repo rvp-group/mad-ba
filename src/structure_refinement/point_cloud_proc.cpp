@@ -108,7 +108,7 @@ namespace structure_refinement {
               sensor_msgs::PointCloud2Ptr cloudMsgSynthPtr(new sensor_msgs::PointCloud2());
               generateSyntheticPointCloud(*cloudMsgSynthPtr);
               PointCloud2MessagePtr cloudSrrg = std::dynamic_pointer_cast<PointCloud2Message>(Converter::convert(cloudMsgSynthPtr));
-              // addNoiseToLastPose();
+              addNoiseToLastPose();
               handleCloudMessage(cloudSrrg);
               // addNoiseToLastPose();
           }
@@ -990,35 +990,35 @@ namespace structure_refinement {
     //  reloadRviz();
      // std::cout << "Reloading Rviz" << std::endl;
           //  ros::Duration(3.0).sleep();
-      // publishTFFromGraph(graph);
-      // publishPointClouds();
-      // publishTFFromGraph(graph);
+      publishTFFromGraph(graph);
+      publishPointClouds();
+      publishTFFromGraph(graph);
 
 
       // Merge and visualize surfels
-      // mergeSurfels();
-      // filterSurfels();
+      mergeSurfels();
+      filterSurfels();
 
       visual_tools_->deleteAllMarkers();
       visualizeCorrespondingSurfelsWithPoses();
       ros::Duration(1.0).sleep();
 
       // Add surfels
-      // addSurfelsToGraphBA(graph);
+      addSurfelsToGraphBA(graph);
 
       // // Just for test - synthethic Surfel
       // Generate multiple surfels
 
-      surfelGTVector = addSynthSurfelsToGraphBA(graph);
+      // surfelGTVector = addSynthSurfelsToGraphBA(graph);
       publishSurfFromGraph(graph);
       updatePosesInGraph(graph);
       // Visualize point clouds
     //  reloadRviz();
      // std::cout << "Reloading Rviz" << std::endl;
           //  ros::Duration(3.0).sleep();
-      publishTFFromGraph(graph);
-      publishPointClouds();
-      publishTFFromGraph(graph);
+      // publishTFFromGraph(graph);
+      // publishPointClouds();
+      // publishTFFromGraph(graph);
 
 
       // Optimize the graph
@@ -1053,17 +1053,17 @@ namespace structure_refinement {
     }
 
     // Calculate the error between surfels after optimization and GT
-    int surfelCnt = 0;
-    for (auto varIt : graph->variables()) {
-      srrg2_solver::VariableSurfelAD1D* varSurf = dynamic_cast<srrg2_solver::VariableSurfelAD1D*>(varIt.second);
-      if (!varSurf) {
-        continue;
-      }
-      Eigen::Isometry3f error = surfelGTVector.at(surfelCnt).inverse().cast<float>() * varSurf->estimate();
-      // std::cout << std::fixed << "Error for surfel " << std::setprecision(2) << surfelCnt << std::endl
-                // << error.matrix() << std::endl;
-      surfelCnt++;
-    }
+    // int surfelCnt = 0;
+    // for (auto varIt : graph->variables()) {
+    //   srrg2_solver::VariableSurfelAD1D* varSurf = dynamic_cast<srrg2_solver::VariableSurfelAD1D*>(varIt.second);
+    //   if (!varSurf) {
+    //     continue;
+    //   }
+    //   Eigen::Isometry3f error = surfelGTVector.at(surfelCnt).inverse().cast<float>() * varSurf->estimate();
+    //   // std::cout << std::fixed << "Error for surfel " << std::setprecision(2) << surfelCnt << std::endl
+    //             // << error.matrix() << std::endl;
+    //   surfelCnt++;
+    // }
   }
 
 void PointCloudProc::updatePosesInGraph(srrg2_solver::FactorGraphPtr& graph) {
@@ -1525,7 +1525,7 @@ void PointCloudProc::updateLeafsPosition(srrg2_solver::FactorGraphPtr& graph, st
         continue;
       }
 
-      std::cout << "SurfelPose: " << std::endl << varSurf->estimate().matrix() << std::endl;
+      // std::cout << "SurfelPose: " << std::endl << varSurf->estimate().matrix() << std::endl;
 
       geometry_msgs::TransformStamped tfStamped;
       tfStamped.header.stamp = ros::Time::now();
@@ -1558,7 +1558,7 @@ void PointCloudProc::updateLeafsPosition(srrg2_solver::FactorGraphPtr& graph, st
     // Define the noise added to the poses
     static std::random_device rd;                                  // obtain a random number from hardware
     static std::mt19937 gen(rd());                                 // seed the generator
-    static std::normal_distribution<double> noiseTrans(0.0, 0.4);  // define the noise for translation
+    static std::normal_distribution<double> noiseTrans(0.0, 0.2);  // define the noise for translation
     static std::normal_distribution<double> noiseRot(0.0, 2.0 * M_PI / 180.0);   // define the noise for rotation
 
     // Take all poses
@@ -1584,6 +1584,7 @@ void PointCloudProc::updateLeafsPosition(srrg2_solver::FactorGraphPtr& graph, st
     // Save pose without noise
     posesWithoutNoise_.push_back(pose);
     static int cnt = 0;
+    // Do not add noise to the first pose? Sometimes usefull
     if (cnt++ != 0)
       pose = pose * perturbation;
 
