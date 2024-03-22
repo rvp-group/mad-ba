@@ -108,7 +108,7 @@ namespace structure_refinement {
               sensor_msgs::PointCloud2Ptr cloudMsgSynthPtr(new sensor_msgs::PointCloud2());
               generateSyntheticPointCloud(*cloudMsgSynthPtr);
               PointCloud2MessagePtr cloudSrrg = std::dynamic_pointer_cast<PointCloud2Message>(Converter::convert(cloudMsgSynthPtr));
-              addNoiseToLastPose();
+              // addNoiseToLastPose();
               handleCloudMessage(cloudSrrg);
               // addNoiseToLastPose();
           }
@@ -968,8 +968,8 @@ namespace structure_refinement {
 
     // Create graph variable
     srrg2_solver::FactorGraphPtr graph(new srrg2_solver::FactorGraph);
-
-    for (int i = 0; i < 4; i++) {
+    std::vector<Eigen::Isometry3d> surfelGTVector;
+    for (int i = 0; i < 1; i++) {
       std::cout << "Iteration:  "  << i << std::endl;
       // Clear the graph
       graph->clear();
@@ -990,13 +990,13 @@ namespace structure_refinement {
     //  reloadRviz();
      // std::cout << "Reloading Rviz" << std::endl;
           //  ros::Duration(3.0).sleep();
-      publishTFFromGraph(graph);
-      publishPointClouds();
-      publishTFFromGraph(graph);
+      // publishTFFromGraph(graph);
+      // publishPointClouds();
+      // publishTFFromGraph(graph);
 
 
       // Merge and visualize surfels
-      mergeSurfels();
+      // mergeSurfels();
       // filterSurfels();
 
       visual_tools_->deleteAllMarkers();
@@ -1004,16 +1004,22 @@ namespace structure_refinement {
       ros::Duration(1.0).sleep();
 
       // Add surfels
-      addSurfelsToGraphBA(graph);
+      // addSurfelsToGraphBA(graph);
 
       // // Just for test - synthethic Surfel
-      // Eigen::Isometry3d surfelGT = Eigen::Isometry3d::Identity();
-      // surfelGT.translation() = Eigen::Vector3d(10, 10, 10);
-      // surfelGT.linear() = Eigen::AngleAxisd(M_PI * 0.45, Eigen::Vector3d::UnitY()).toRotationMatrix();
-      // addSynthSurfelsToGraphBA(graph, surfelGT);
-      // publishSurfFromGraph(graph);
+      // Generate multiple surfels
 
-      // if (i == 0)
+      surfelGTVector = addSynthSurfelsToGraphBA(graph);
+      publishSurfFromGraph(graph);
+      updatePosesInGraph(graph);
+      // Visualize point clouds
+    //  reloadRviz();
+     // std::cout << "Reloading Rviz" << std::endl;
+          //  ros::Duration(3.0).sleep();
+      publishTFFromGraph(graph);
+      publishPointClouds();
+      publishTFFromGraph(graph);
+
 
       // Optimize the graph
       optimizeFactorGraph(graph);
@@ -1035,6 +1041,29 @@ namespace structure_refinement {
     publishPointClouds();
     publishTFFromGraph(graph);
     publishSurfFromGraph(graph);
+
+    // Calculate the error between poses after optimization and GT
+    int poseCnt = 0;
+    for (auto& pose : posesInGraph_) {
+      // Use poses_ here instead of posesWithoutNoise_, so that the GT poses are whenthe point clouds are aligned (for visialization only)
+      Eigen::Isometry3d error = poses_.at(poseCnt).inverse() * pose;
+      std::cout << std::fixed << "Error for pose " << std::setprecision(2) <<  poseCnt << std::endl
+                << error.matrix() << std::endl;
+      poseCnt++;
+    }
+
+    // Calculate the error between surfels after optimization and GT
+    int surfelCnt = 0;
+    for (auto varIt : graph->variables()) {
+      srrg2_solver::VariableSurfelAD1D* varSurf = dynamic_cast<srrg2_solver::VariableSurfelAD1D*>(varIt.second);
+      if (!varSurf) {
+        continue;
+      }
+      Eigen::Isometry3f error = surfelGTVector.at(surfelCnt).inverse().cast<float>() * varSurf->estimate();
+      // std::cout << std::fixed << "Error for surfel " << std::setprecision(2) << surfelCnt << std::endl
+                // << error.matrix() << std::endl;
+      surfelCnt++;
+    }
   }
 
 void PointCloudProc::updatePosesInGraph(srrg2_solver::FactorGraphPtr& graph) {
@@ -1050,61 +1079,93 @@ void PointCloudProc::updatePosesInGraph(srrg2_solver::FactorGraphPtr& graph) {
   }
 }
 
-void PointCloudProc::addSynthSurfelsToGraphBA(srrg2_solver::FactorGraphPtr& graph, Eigen::Isometry3d gt) {
+std::vector<Eigen::Isometry3d> PointCloudProc::addSynthSurfelsToGraphBA(srrg2_solver::FactorGraphPtr& graph) {
 
   int64_t lastGraphId = poses_.size() - 1;
-  auto surfelVar = std::make_shared<srrg2_solver::VariableSurfelAD1D>();
-  Eigen::Isometry3d surfelPose = gt;
-  surfelVar->setEstimate(surfelPose.cast<float>());
-  surfelVar->setGraphId(++lastGraphId);
-  graph->addVariable(surfelVar);
 
-  for (int i =0; i < poses_.size(); i++)
-  {
-    srrg2_solver::VariableSE3QuaternionRight* varPose = dynamic_cast<srrg2_solver::VariableSE3QuaternionRight*>(graph->variable(i));
-    
-    // Create factor
-    std::shared_ptr<srrg2_solver::SE3PoseSurfelQuaternionErrorFactorAD1D> poseSurfelFactor = std::make_shared<srrg2_solver::SE3PoseSurfelQuaternionErrorFactorAD1D>();
-    poseSurfelFactor->setVariableId(0, i);
-    poseSurfelFactor->setVariableId(1, surfelVar->graphId());
+  std::vector<Eigen::Isometry3d> surfelGTVector;
 
-    Eigen::Isometry3f surfelInPose = varPose->estimate().inverse() *  gt.cast<float>();
+  // Used to generate random position of a surfel
+  Eigen::Isometry3d surfelGT = Eigen::Isometry3d::Identity();
+  static std::random_device rdS;                            // obtain a random number from hardware
+  static std::mt19937 genS(rdS());                          // seed the generator
+  static std::normal_distribution<double> trans(5.0, 8.0);  // define the noise for translation
+  static std::normal_distribution<double> rot(0.0, M_PI);    // define the noise for rotation
 
-    // Add noise
-    static std::random_device rd;                                 // obtain a random number from hardware
-    static std::mt19937 gen(rd());                                // seed the generator
-    static std::normal_distribution<float> noiseTrans(0.0, 0.2);  // define the noise for translation
-    static std::normal_distribution<float> noiseRot(0.0, 3.0 * M_PI / 180.0);   // define the noise for rotation
-    Eigen::Isometry3f perturbation = Eigen::Isometry3f::Identity();
-    perturbation.translation() = Eigen::Vector3f(noiseTrans(gen), noiseTrans(gen), noiseTrans(gen));
-    perturbation.linear() = (Eigen::AngleAxisf(noiseRot(gen), Eigen::Vector3f::UnitX()) *
-                             Eigen::AngleAxisf(noiseRot(gen), Eigen::Vector3f::UnitY()) *
-                             Eigen::AngleAxisf(noiseRot(gen), Eigen::Vector3f::UnitZ()))
-                                .toRotationMatrix();
+  // Generate the surfels GT positions vector
+  for (int j = 0; j < 20; j++) {
 
-
-
-    surfelInPose = surfelInPose * perturbation;
-    poseSurfelFactor->setMeasurement(surfelInPose);
-    Eigen::Isometry3f surfelInMap = varPose->estimate() * surfelInPose;
-    visual_tools_->publishAxis(surfelInMap.cast<double>(), rviz_visual_tools::LARGE);
-    visual_tools_->publishLine(varPose->estimate().translation().cast<double>(), surfelInMap.translation().cast<double>(), static_cast<rviz_visual_tools::colors>(9));
-    visual_tools_->trigger();
-
-    // Set information matrix
-    Eigen::Matrix<float, 1, 1> infMat = Eigen::Matrix<float, 1, 1>::Identity();
-    poseSurfelFactor->setInformationMatrix(infMat);
-
-    // Add factor to the graph
-    graph->addFactor(poseSurfelFactor);
-
-    if (i == poses_.size() - 1) {
-      perturbation.translation() *= 5;
-      surfelVar->setEstimate(surfelPose.cast<float>() * perturbation);
-    }
+    // Random position of a surfel
+    surfelGT.translation() = Eigen::Vector3d(trans(genS), trans(genS), trans(genS));
+    surfelGT.linear() = (Eigen::AngleAxisd(rot(genS), Eigen::Vector3d::UnitX()) *
+                         Eigen::AngleAxisd(rot(genS), Eigen::Vector3d::UnitY()) *
+                         Eigen::AngleAxisd(rot(genS), Eigen::Vector3d::UnitZ()))
+                            .toRotationMatrix();
+    surfelGTVector.push_back(surfelGT);
   }
 
+  for (int j = 0; j < surfelGTVector.size(); j++) {
+    auto surfelVar = std::make_shared<srrg2_solver::VariableSurfelAD1D>();
+    Eigen::Isometry3d surfelPoseGT = surfelGTVector.at(j);
+    surfelVar->setEstimate(surfelPoseGT.cast<float>());
+    surfelVar->setGraphId(++lastGraphId);
+    // surfelVar->setStatus(srrg2_solver::VariableBase::Status::Fixed);
+
+    graph->addVariable(surfelVar);
+      static int markerColor = 0;
+      markerColor++;
+    for (int i = 0; i < poses_.size(); i++) {
+      srrg2_solver::VariableSE3QuaternionRight* varPose = dynamic_cast<srrg2_solver::VariableSE3QuaternionRight*>(graph->variable(i));
+
+      // Create factor
+      std::shared_ptr<srrg2_solver::SE3PoseSurfelQuaternionErrorFactorAD1D> poseSurfelFactor = std::make_shared<srrg2_solver::SE3PoseSurfelQuaternionErrorFactorAD1D>();
+      poseSurfelFactor->setVariableId(0, i);
+      poseSurfelFactor->setVariableId(1, surfelVar->graphId());
+
+      Eigen::Isometry3f surfelInPose = varPose->estimate().inverse() * surfelPoseGT.cast<float>();
+
+      // Add noise
+      static std::random_device rd;                                              // obtain a random number from hardware
+      static std::mt19937 gen(rd());                                             // seed the generator
+      static std::normal_distribution<float> noiseTrans(0.0, 0.2);               // define the noise for translation
+      static std::normal_distribution<float> noiseRot(0.0, 3.0 * M_PI / 180.0);  // define the noise for rotation
+      Eigen::Isometry3f perturbation = Eigen::Isometry3f::Identity();
+      perturbation.translation() = Eigen::Vector3f(noiseTrans(gen), noiseTrans(gen), noiseTrans(gen));
+      perturbation.linear() = (Eigen::AngleAxisf(noiseRot(gen), Eigen::Vector3f::UnitX()) *
+                               Eigen::AngleAxisf(noiseRot(gen), Eigen::Vector3f::UnitY()) *
+                               Eigen::AngleAxisf(noiseRot(gen), Eigen::Vector3f::UnitZ()))
+                                  .toRotationMatrix();
+
+      // Add noise to the measurement
+      surfelInPose = surfelInPose * perturbation;
+      poseSurfelFactor->setMeasurement(surfelInPose);
+      Eigen::Isometry3f surfelInMap = varPose->estimate() * surfelInPose;
+      visual_tools_->publishAxis(surfelInMap.cast<double>(), rviz_visual_tools::LARGE);
+      visual_tools_->publishLine(varPose->estimate().translation().cast<double>(), surfelInMap.translation().cast<double>(), static_cast<rviz_visual_tools::colors>(markerColor%14));
+      visual_tools_->trigger();
+
+      // Set information matrix
+      Eigen::Matrix<float, 1, 1> infMat = Eigen::Matrix<float, 1, 1>::Identity();
+      poseSurfelFactor->setInformationMatrix(infMat);
+
+      // Add factor to the graph
+      graph->addFactor(poseSurfelFactor);
+
+      // In the last iteration add noise to the inital estimate of surfel
+      if (i == poses_.size() - 1) {
+        perturbation.translation() *= 2;
+        // surfelVar->setEstimate(surfelPoseGT.cast<float>() * perturbation);
+      }
+      // In the last iteration add noise to the pose
+      if (j == surfelGTVector.size() - 1) {
+        if (i != 0) // except the first pose
+          varPose->setEstimate(varPose->estimate() * perturbation);
+      }
+    }
+  }
+  return surfelGTVector;
 }
+
 void PointCloudProc::addSurfelsToGraphBA(srrg2_solver::FactorGraphPtr& graph){
 
     // Set lastID to the number of poses
@@ -1198,7 +1259,7 @@ void PointCloudProc::addPosesToGraphBA(srrg2_solver::FactorGraphPtr& graph, std:
     poseVar->setGraphId(idx);
 
     // Set first variable as Fixed
-    // if (idx == 0)
+    if (idx == 0)
       poseVar->setStatus(srrg2_solver::VariableBase::Status::Fixed);
 
     // Set estimate with noise
