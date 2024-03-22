@@ -247,7 +247,7 @@ namespace structure_refinement {
 
   void PointCloudProc::visualizeCorrespondingSurfelsWithPoses() {
 
-      int decimation = 20;
+      int decimation = 1;
       int surfelsToVis = 10000;
 
       unsigned int maxPoses = 0;
@@ -279,7 +279,7 @@ namespace structure_refinement {
         //   }
           // Publish poses array
         //   poseArrayPub_.publish(poseArray);
-          static int markerColor = 4;
+          static int markerColor = 9;
           markerColor++;
           // Show all correspondences in one color
           for (auto const& poseId : surfels_.at(i)->poseSurfelsIds_) {
@@ -301,7 +301,7 @@ namespace structure_refinement {
                       else
                         trans = posesInGraph_.at(poseId.first);
 
-                      visual_tools_->publishLine(trans.translation(), leaf->mean_, static_cast<rviz_visual_tools::colors>(markerColor % 14));
+                      visual_tools_->publishLine(trans.translation(), leaf->mean_, static_cast<rviz_visual_tools::colors>(markerColor % 14), rviz_visual_tools::LARGE);
                       visual_tools_->trigger();
                   }
               }
@@ -332,7 +332,7 @@ namespace structure_refinement {
 
     // Remove all surfels except 5
     int vecSize = surfels_.size();
-    for (int i = vecSize - 1; i > 0; i--) {
+    for (int i = vecSize - 1; i > 400; i--) {
       surfels_.pop_back();
     }
     std::cout << "Surfels size "  << surfels_.size() << std::endl;
