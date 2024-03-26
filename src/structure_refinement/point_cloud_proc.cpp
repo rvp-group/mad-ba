@@ -63,11 +63,11 @@ namespace structure_refinement {
   bool PointCloudProc::putMessage(srrg2_core::BaseSensorMessagePtr msg) {
       
       // Whether to use synthetic data
-      bool useSynthethicData = true;
+      bool useSynthethicData = false;
 
       // Skip first n messages and process only m first clouds
       int cloudsToSkip = 100;
-      int cloudsToProcess = 6;
+      int cloudsToProcess = 160;
       static int msgCnt = -1;
       if (++msgCnt < 2 * cloudsToSkip) {
         return true;
@@ -117,14 +117,20 @@ namespace structure_refinement {
           // Try to convert the message to srrg2 point cloud
           if (PointCloud2MessagePtr cloud = std::dynamic_pointer_cast<PointCloud2Message>(msg)) {
               static int cloudMsgCnt = 0;
-              std::cout << std::setprecision(12) << "Point cloud message no." << cloudMsgCnt++ << " Ts: " << cloud->timestamp.value() << std::endl;
-              handleCloudMessage(cloud);
+              if (cloudMsgCnt++ % 20 == 0) {
+                std::cout << std::setprecision(12) << "Point cloud message no." << cloudMsgCnt << " Ts: " << cloud->timestamp.value() << std::endl;
+                handleCloudMessage(cloud);
+              }
           }
           // Try to convert the message to srrg2 odometry
           else if (OdometryMessagePtr odom = std::dynamic_pointer_cast<OdometryMessage>(msg)) {
-              static int odomMsgCnt = 0;
-              std::cout << std::setprecision(12) << "Odometry message no." << odomMsgCnt++ << " Ts: " << odom->timestamp.value() << std::endl;
+            static int odomMsgCnt = 0;
+            if (odomMsgCnt++ % 20 == 0) {
+              std::cout << std::setprecision(12) << "Odometry message no." << odomMsgCnt << " Ts: " << odom->timestamp.value() << std::endl;
               handleOdometryMessage(odom);
+              addNoiseToLastPose();
+
+            }
           }
           // Try to convert the message to srrg2 odometry
           else if (TransformEventsMessagePtr tfMsg = std::dynamic_pointer_cast<TransformEventsMessage>(msg)) {
@@ -256,7 +262,6 @@ namespace structure_refinement {
               maxPoses = surfels_.at(i)->odomPoses_.size();
           }
       }
-
       // Add all poses for given surfel
       geometry_msgs::PoseArray poseArray;
       poseArray.header.stamp = ros::Time::now();
@@ -285,7 +290,7 @@ namespace structure_refinement {
           for (auto const& poseId : surfels_.at(i)->poseSurfelsIds_) {
               //   Visuzalize surfels with poses num > maxPoses/2
               // ToDo check if these are different poses or sth
-              // if (surfels_.at(i)->odomPoses_.size() == 3)
+              // if (surfels_.at(i)->odomPoses_.size() >= 6)
               {
                   static int visCnt = 0;
                   if (visCnt++ > surfelsToVis)
@@ -347,8 +352,8 @@ namespace structure_refinement {
 
       // Parameters for merging
       // Max distance between two surfels to consider the merge
-      double maxDistance = 0.2;
-      double maxDistanceNorm = 1.0;
+      double maxDistance = 0.3;
+      double maxDistanceNorm = 0.6;
       // Max angle between two surfels to consider the merge
       double maxAngle = 5 * M_PI / 180.0;
 
@@ -363,7 +368,7 @@ namespace structure_refinement {
           for (unsigned long j = i + 1; j < kdTreeLeafes_.size(); j++) {
               // For each surfer from i-th kdTree find the closest surfer from j-th kdTree
             //   for (auto& leafI : kdTreeLeafes_[i]) {
-              for (unsigned int idLeafI = 0; idLeafI < kdTreeLeafes_[i].size(); idLeafI++) {
+              for (unsigned int idLeafI = 0; idLeafI < kdTreeLeafes_[i].size(); idLeafI+=10) {
                   //   auto kdTreetmpp = kdTrees_.at(j);
                   // std::shared_ptr<TreeNodeType> surfelB = std::shared_ptr<TreeNodeType>(kdTreetmpp->bestMatchingLeafFast(surfelA->mean_));
                   // Get pointer to a surfelB
@@ -996,10 +1001,10 @@ namespace structure_refinement {
 
       // Merge and visualize surfels
       mergeSurfels();
-      filterSurfels();
+      // filterSurfels();
 
       visual_tools_->deleteAllMarkers();
-      visualizeCorrespondingSurfelsWithPoses();
+      // visualizeCorrespondingSurfelsWithPoses();
       ros::Duration(1.0).sleep();
 
       // Add surfels
@@ -1009,7 +1014,7 @@ namespace structure_refinement {
       // Generate multiple surfels
 
       // surfelGTVector = addSynthSurfelsToGraphBA(graph);
-      publishSurfFromGraph(graph);
+      // publishSurfFromGraph(graph);
       updatePosesInGraph(graph);
       // Visualize point clouds
     //  reloadRviz();
@@ -1044,8 +1049,8 @@ namespace structure_refinement {
     // Calculate the error between poses after optimization and GT
     int poseCnt = 0;
     for (auto& pose : posesInGraph_) {
-      // Use poses_ here instead of posesWithoutNoise_, so that the GT poses are whenthe point clouds are aligned (for visialization only)
-      Eigen::Isometry3d error = poses_.at(poseCnt).inverse() * pose;
+      // Use poses_ here instead of posesWithoutNoise_, so that the GT poses are when the point clouds are aligned (for visialization only)
+      Eigen::Isometry3d error = posesWithoutNoise_.at(poseCnt).inverse() * pose;
       std::cout << std::fixed << "Error for pose " << std::setprecision(2) <<  poseCnt << std::endl
                 << error.matrix() << std::endl;
       poseCnt++;
@@ -1529,7 +1534,7 @@ void PointCloudProc::updateLeafsPosition(srrg2_solver::FactorGraphPtr& graph, st
       geometry_msgs::TransformStamped tfStamped;
       tfStamped.header.stamp = ros::Time::now();
       tfStamped.header.frame_id = "map";
-      tfStamped.child_frame_id = "surfel_" + std::to_string(cnt++);
+      tfStamped.child_frame_id = "surfel_" + std::to_string(cnt);
 
       Eigen::Isometry3f pose = varSurf->estimate();
       Eigen::Quaternionf quat(pose.linear());
@@ -1542,8 +1547,15 @@ void PointCloudProc::updateLeafsPosition(srrg2_solver::FactorGraphPtr& graph, st
       tfStamped.transform.rotation.y = quat.y();
       tfStamped.transform.rotation.z = quat.z();
       tfStamped.transform.rotation.w = quat.w();
-      transformBroadcaster_.sendTransform(tfStamped);
+      // transformBroadcaster_.sendTransform(tfStamped);
+      static int markerColor = 0;
+      float radius = surfels_.at(cnt)->getLargestRadius();
+      // float radius = 0.2;
+      float thickness = 0.01;
+      visual_tools_->publishCylinder(varSurf->estimate().cast<double>(), static_cast<rviz_visual_tools::colors>(markerColor++ % 11), thickness, radius);
+      cnt++;
     }
+    visual_tools_->trigger();
   }
 
   void PointCloudProc::publishPointClouds() {

@@ -36,6 +36,16 @@ bool Surfel::checkIfPoseExists(unsigned int poseId) {
   return false;
 }
 
+float Surfel::getLargestRadius() {
+    float maxRadius = 0.1;
+    for (Eigen::Matrix<double, 3, 5> observ: observations_){
+       float tmpRadius = std::sqrt(observ(1, 4)*observ(1, 4) + observ(2, 4)*observ(2, 4));
+       if (tmpRadius > maxRadius)
+        maxRadius = tmpRadius;
+    }
+    return maxRadius;
+}
+
 nlohmann::json Surfel::getJson() {
     // Create Json object
     nlohmann::json j;
