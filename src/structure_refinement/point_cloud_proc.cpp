@@ -557,10 +557,9 @@ namespace structure_refinement {
       static std::vector<PointCloud2MessagePtr> cloudBuffer;
       // Add item to a buffer
       cloudBuffer.push_back(cloudMsg); 
-      
       // Try to empty the buffer
-      for (unsigned int i = 0; i < cloudBuffer.size(); i++) {
-
+      // Do not increment the i, as the cloudBuffer size decreases if the point cloud is processed
+      for (unsigned int i = 0; i < cloudBuffer.size();) { 
           // Check if there is already pose for that cloud
           // Get the index that this cloud will have
           int idx_cloud = pointClouds_.size();
@@ -619,7 +618,7 @@ namespace structure_refinement {
           }
 
           // For each point cloud create an KDTree and leafs | Get the last pose 
-          createKDTree(pointCloudEigen, poses_.back());
+          createKDTree(pointCloudEigen, poses_.at(idx_cloud));
           // Publish the normals created from the last point cloud
           //   int idx = kdTreeLeafes_.size()-1;
           //   publishCloudNormals(idx);
