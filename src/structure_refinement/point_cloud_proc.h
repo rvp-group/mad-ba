@@ -91,11 +91,12 @@ namespace structure_refinement {
     void addSurfelFactors(const srrg2_solver::FactorGraphPtr &);
     void addPosesToGraphBA(srrg2_solver::FactorGraphPtr &, std::vector<Eigen::Isometry3d>&);
     void addSurfelsToGraphBA(srrg2_solver::FactorGraphPtr&);
-    std::vector<Eigen::Isometry3d> addSynthSurfelsToGraphBA(srrg2_solver::FactorGraphPtr&); // Returns the GT Surfels poses
+    std::vector<Eigen::Isometry3d> addSynthSurfelsToGraphBA(srrg2_solver::FactorGraphPtr&, std::vector<SynthSurfel> &); // Returns the GT Surfels poses
 
     void updateLeafsPosition(srrg2_solver::FactorGraphPtr&, std::vector<Eigen::Isometry3d>&);
     void updatePosesInGraph(srrg2_solver::FactorGraphPtr &);
     void reloadRviz();
+    void rawOptimizeSurfels(const std::vector<SynthSurfel> & surfelsIn, std::vector<SynthSurfel> & surfelsOut);
 
    protected:
     using PointUnprojectorBase = srrg2_core::PointUnprojectorBase_<srrg2_core::PointNormalIntensity3fVectorCloud>;

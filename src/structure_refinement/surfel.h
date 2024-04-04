@@ -58,4 +58,32 @@ class Surfel : public srrg2_core::MessageSinkBase {
 };
 using SurfelPtr = std::shared_ptr<Surfel>;
 
+
+class SynthSurfel{
+    static unsigned int idCounter;
+
+   public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+    SynthSurfel() {};
+    ~SynthSurfel() {};
+    void addObservation(Eigen::Matrix<double, 3, 2>&);
+    Eigen::Matrix3d matrixBetween2Vectors(Eigen::Vector3d, Eigen::Vector3d );
+
+    Eigen::Isometry3f getIsometry();
+
+//    protected:
+    unsigned int id_;
+    // double radius_;
+    Eigen::Vector3d estPosition_; // Initial estimate of position
+    Eigen::Vector3d estNormal_; //Initial estimate of normal
+
+    // Eigen::Vector3d normal_;
+    // Eigen::VectorXd uncertainty_;
+    // std::vector<Eigen::Isometry3d> odomPoses_;                      // Odometry poses from which the surfel was observed | Indices correspond to observations_
+    std::vector<Eigen::Matrix<double, 3, 2>> observations_;         // Normal and mean
+
+};
+using SynthSurfelPtr = std::shared_ptr<SynthSurfel>;
+
+
 }  // namespace structure_refinement

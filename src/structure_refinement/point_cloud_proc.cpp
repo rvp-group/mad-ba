@@ -67,14 +67,14 @@ namespace structure_refinement {
 
       // Skip first n messages and process only m first clouds
       int cloudsToSkip = 100;
-      int cloudsToProcess = 160;
+      int cloudsToProcess = 10;
       static int msgCnt = -1;
       if (++msgCnt < 2 * cloudsToSkip) {
         return true;
       } else if (msgCnt > 2 * (cloudsToSkip + cloudsToProcess) - 1) {
         // Publish results before exit
         //   publishCloudNormals(kdTreeLeafes_.size() - 1);
-        // publishCloudNormals(0);
+        
         // publishCloudNormals(1);
         // publishCloudNormals(2);
 
@@ -84,7 +84,7 @@ namespace structure_refinement {
         handleFactorGraphBA();
         // createBAGraph();
 
-        //   visualizePointClouds();
+          // visualizePointClouds();
         ros::Duration(2.0).sleep();
         exit(0);
       }
@@ -108,9 +108,8 @@ namespace structure_refinement {
               sensor_msgs::PointCloud2Ptr cloudMsgSynthPtr(new sensor_msgs::PointCloud2());
               generateSyntheticPointCloud(*cloudMsgSynthPtr);
               PointCloud2MessagePtr cloudSrrg = std::dynamic_pointer_cast<PointCloud2Message>(Converter::convert(cloudMsgSynthPtr));
-              addNoiseToLastPose();
-              handleCloudMessage(cloudSrrg);
               // addNoiseToLastPose();
+              handleCloudMessage(cloudSrrg);
           }
       } else {
           // Let's assume that for each point cloud in a .bag file there is one odometry pose
@@ -161,7 +160,7 @@ namespace structure_refinement {
               bbox[i] = 0.01;
 
         // Publish normal as Arrow
-      visual_tools_->publishArrow(surfelPose, static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::SMALL);
+      visual_tools_->publishArrow(surfelPose, static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::MEDIUM);
 
         // Publish surfel as Cylinder
         // Get the rotation matrix for 90* in Y axis
@@ -368,7 +367,7 @@ namespace structure_refinement {
           for (unsigned long j = i + 1; j < kdTreeLeafes_.size(); j++) {
               // For each surfer from i-th kdTree find the closest surfer from j-th kdTree
             //   for (auto& leafI : kdTreeLeafes_[i]) {
-              for (unsigned int idLeafI = 0; idLeafI < kdTreeLeafes_[i].size(); idLeafI+=10) {
+              for (unsigned int idLeafI = 0; idLeafI < kdTreeLeafes_[i].size(); idLeafI++) {
                   //   auto kdTreetmpp = kdTrees_.at(j);
                   // std::shared_ptr<TreeNodeType> surfelB = std::shared_ptr<TreeNodeType>(kdTreetmpp->bestMatchingLeafFast(surfelA->mean_));
                   // Get pointer to a surfelB
@@ -973,6 +972,7 @@ namespace structure_refinement {
     // Create graph variable
     srrg2_solver::FactorGraphPtr graph(new srrg2_solver::FactorGraph);
     std::vector<Eigen::Isometry3d> surfelGTVector;
+    std::vector<SynthSurfel> surfelsAfterRawOptim;
     for (int i = 0; i < 1; i++) {
       std::cout << "Iteration:  "  << i << std::endl;
       // Clear the graph
@@ -991,45 +991,50 @@ namespace structure_refinement {
       updatePosesInGraph(graph);
 
       // Visualize point clouds
-    //  reloadRviz();
-     // std::cout << "Reloading Rviz" << std::endl;
+      //  reloadRviz();
+      // std::cout << "Reloading Rviz" << std::endl;
+      //  ros::Duration(3.0).sleep();
+      // publishTFFromGraph(graph);
+      // publishPointClouds();
+      // publishTFFromGraph(graph);
+
+
+      // Merge and visualize surfels
+      // mergeSurfels();
+      // filterSurfels();
+
+      // visual_tools_->deleteAllMarkers();
+      // visualizeCorrespondingSurfelsWithPoses();
+      // ros::Duration(1.0).sleep();
+
+      // Add surfels
+      // addSurfelsToGraphBA(graph);
+
+      // // Just for test - synthethic Surfel
+      // Generate multiple surfels
+      visual_tools_->deleteAllMarkers();
+      std::vector<SynthSurfel> surfelsWithNoise;
+      surfelGTVector = addSynthSurfelsToGraphBA(graph, surfelsWithNoise);
+      publishSurfFromGraph(graph);
+
+      // updatePosesInGraph(graph);
+
+      // Visualize point clouds
+      //  reloadRviz();
+      // std::cout << "Reloading Rviz" << std::endl;
           //  ros::Duration(3.0).sleep();
       publishTFFromGraph(graph);
       publishPointClouds();
       publishTFFromGraph(graph);
 
 
-      // Merge and visualize surfels
-      mergeSurfels();
-      // filterSurfels();
-
-      visual_tools_->deleteAllMarkers();
-      // visualizeCorrespondingSurfelsWithPoses();
-      ros::Duration(1.0).sleep();
-
-      // Add surfels
-      addSurfelsToGraphBA(graph);
-
-      // // Just for test - synthethic Surfel
-      // Generate multiple surfels
-
-      // surfelGTVector = addSynthSurfelsToGraphBA(graph);
-      // publishSurfFromGraph(graph);
-      updatePosesInGraph(graph);
-      // Visualize point clouds
-    //  reloadRviz();
-     // std::cout << "Reloading Rviz" << std::endl;
-          //  ros::Duration(3.0).sleep();
-      // publishTFFromGraph(graph);
-      // publishPointClouds();
-      // publishTFFromGraph(graph);
-
-
       // Optimize the graph
+      rawOptimizeSurfels(surfelsWithNoise, surfelsAfterRawOptim);
       optimizeFactorGraph(graph);
 
       // Update kdTree and leafs (surfels) in the map frame, based on actual poses and poses before optimization
-      updateLeafsPosition(graph, posesInGraph_);
+      // Only necessary when there are more than one iteration of merging the surfels
+      // updateLeafsPosition(graph, posesInGraph_);
 
       // Update for next iteration
       updatePosesInGraph(graph);
@@ -1037,37 +1042,52 @@ namespace structure_refinement {
       // Get the position of a surfel
       // srrg2_solver::VariableSurfelAD1D* varSurfel = dynamic_cast<srrg2_solver::VariableSurfelAD1D*>(graph->variable(poses_.size()));
       // std::cout << "Relative error between GT\nand optimized surfel pose: "  << std::endl << (surfelGT.inverse().cast<float>() * varSurfel->estimate()).matrix() << std::endl;
-      ros::Duration(6.0).sleep();
+      ros::Duration(5.0).sleep();
     }
 
     // Visualize point clouds
     publishTFFromGraph(graph);
     publishPointClouds();
     publishTFFromGraph(graph);
+    // visual_tools_->deleteAllMarkers();
     publishSurfFromGraph(graph);
 
     // Calculate the error between poses after optimization and GT
     int poseCnt = 0;
     for (auto& pose : posesInGraph_) {
       // Use poses_ here instead of posesWithoutNoise_, so that the GT poses are when the point clouds are aligned (for visialization only)
-      Eigen::Isometry3d error = posesWithoutNoise_.at(poseCnt).inverse() * pose;
+      Eigen::Isometry3d error = poses_.at(poseCnt).inverse() * pose;
       std::cout << std::fixed << "Error for pose " << std::setprecision(2) <<  poseCnt << std::endl
                 << error.matrix() << std::endl;
       poseCnt++;
     }
 
     // Calculate the error between surfels after optimization and GT
-    // int surfelCnt = 0;
-    // for (auto varIt : graph->variables()) {
-    //   srrg2_solver::VariableSurfelAD1D* varSurf = dynamic_cast<srrg2_solver::VariableSurfelAD1D*>(varIt.second);
-    //   if (!varSurf) {
-    //     continue;
-    //   }
-    //   Eigen::Isometry3f error = surfelGTVector.at(surfelCnt).inverse().cast<float>() * varSurf->estimate();
-    //   // std::cout << std::fixed << "Error for surfel " << std::setprecision(2) << surfelCnt << std::endl
-    //             // << error.matrix() << std::endl;
-    //   surfelCnt++;
-    // }
+    int surfelCnt = 0;
+    for (auto varIt : graph->variables()) {
+      srrg2_solver::VariableSurfelAD1D* varSurf = dynamic_cast<srrg2_solver::VariableSurfelAD1D*>(varIt.second);
+      if (!varSurf) {
+        continue;
+      }
+      Eigen::Isometry3f error = surfelGTVector.at(surfelCnt).inverse().cast<float>() * varSurf->estimate();
+      
+      Eigen::Isometry3f errorRaw = surfelGTVector.at(surfelCnt).inverse().cast<float>() * surfelsAfterRawOptim.at(surfelCnt).getIsometry();
+      std::cout << std::fixed << "Error for surfel " << std::setprecision(2) << surfelCnt << std::endl
+                << error.matrix() << std::endl;
+      std::cout << std::fixed << "Error for surfel optimization without solver " << std::setprecision(2) << surfelCnt << std::endl
+                << errorRaw.matrix() << std::endl;
+
+       std::cout << std::fixed << "Matrix GT " << std::setprecision(2) << std::endl
+                << surfelGTVector.at(surfelCnt).matrix() << std::endl;
+
+       std::cout << std::fixed << "Matrix Solver " << std::setprecision(2)  << std::endl
+                << varSurf->estimate().matrix() << std::endl;
+
+       std::cout << std::fixed << "Matrix No Solver " << std::setprecision(2)  << std::endl
+                 << surfelsAfterRawOptim.at(surfelCnt).getIsometry().matrix() << std::endl << std::endl;
+
+       surfelCnt++;
+    }
   }
 
 void PointCloudProc::updatePosesInGraph(srrg2_solver::FactorGraphPtr& graph) {
@@ -1083,7 +1103,7 @@ void PointCloudProc::updatePosesInGraph(srrg2_solver::FactorGraphPtr& graph) {
   }
 }
 
-std::vector<Eigen::Isometry3d> PointCloudProc::addSynthSurfelsToGraphBA(srrg2_solver::FactorGraphPtr& graph) {
+std::vector<Eigen::Isometry3d> PointCloudProc::addSynthSurfelsToGraphBA(srrg2_solver::FactorGraphPtr& graph, std::vector<SynthSurfel> & surfOut) {
 
   int64_t lastGraphId = poses_.size() - 1;
 
@@ -1114,8 +1134,11 @@ std::vector<Eigen::Isometry3d> PointCloudProc::addSynthSurfelsToGraphBA(srrg2_so
     surfelVar->setEstimate(surfelPoseGT.cast<float>());
     surfelVar->setGraphId(++lastGraphId);
     // surfelVar->setStatus(srrg2_solver::VariableBase::Status::Fixed);
-
     graph->addVariable(surfelVar);
+
+    // Create synthethic
+    SynthSurfel synthSurfel;
+
       static int markerColor = 0;
       markerColor++;
     for (int i = 0; i < poses_.size(); i++) {
@@ -1132,9 +1155,9 @@ std::vector<Eigen::Isometry3d> PointCloudProc::addSynthSurfelsToGraphBA(srrg2_so
       static std::random_device rd;                                              // obtain a random number from hardware
       static std::mt19937 gen(rd());                                             // seed the generator
       static std::normal_distribution<float> noiseTrans(0.0, 0.2);               // define the noise for translation
-      static std::normal_distribution<float> noiseRot(0.0, 3.0 * M_PI / 180.0);  // define the noise for rotation
+      static std::normal_distribution<float> noiseRot(0.0, 0.0 * M_PI / 180.0);  // define the noise for rotation
       Eigen::Isometry3f perturbation = Eigen::Isometry3f::Identity();
-      perturbation.translation() = Eigen::Vector3f(noiseTrans(gen), noiseTrans(gen), noiseTrans(gen));
+      perturbation.translation() = Eigen::Vector3f(0,0, noiseTrans(gen));
       perturbation.linear() = (Eigen::AngleAxisf(noiseRot(gen), Eigen::Vector3f::UnitX()) *
                                Eigen::AngleAxisf(noiseRot(gen), Eigen::Vector3f::UnitY()) *
                                Eigen::AngleAxisf(noiseRot(gen), Eigen::Vector3f::UnitZ()))
@@ -1148,6 +1171,14 @@ std::vector<Eigen::Isometry3d> PointCloudProc::addSynthSurfelsToGraphBA(srrg2_so
       visual_tools_->publishLine(varPose->estimate().translation().cast<double>(), surfelInMap.translation().cast<double>(), static_cast<rviz_visual_tools::colors>(markerColor%14));
       visual_tools_->trigger();
 
+      // Add observation to synth surfel
+       Eigen::Matrix<double,3,2> obs;
+        // Position of a surfel
+      obs.block<3,1>(0,0) = surfelInMap.translation().cast<double>();
+        // Normal of a surfel
+      obs.block<3,1>(0,1) = surfelInMap.linear().col(2).cast<double>();
+      synthSurfel.addObservation(obs);
+
       // Set information matrix
       Eigen::Matrix<float, 1, 1> infMat = Eigen::Matrix<float, 1, 1>::Identity();
       poseSurfelFactor->setInformationMatrix(infMat);
@@ -1158,12 +1189,16 @@ std::vector<Eigen::Isometry3d> PointCloudProc::addSynthSurfelsToGraphBA(srrg2_so
       // In the last iteration add noise to the inital estimate of surfel
       if (i == poses_.size() - 1) {
         perturbation.translation() *= 2;
-        // surfelVar->setEstimate(surfelPoseGT.cast<float>() * perturbation);
+        surfelVar->setEstimate(surfelPoseGT.cast<float>() * perturbation);
+        Eigen::Matrix<double,3,2> obs;
+        synthSurfel.estPosition_ = surfelVar->estimate().translation().cast<double>();
+        synthSurfel.estNormal_ = surfelVar->estimate().linear().col(2).cast<double>();
+        surfOut.push_back(synthSurfel);
       }
       // In the last iteration add noise to the pose
       if (j == surfelGTVector.size() - 1) {
-        if (i != 0) // except the first pose
-          varPose->setEstimate(varPose->estimate() * perturbation);
+        // if (i != 0) // except the first pose
+          // varPose->setEstimate(varPose->estimate() * perturbation);
       }
     }
   }
@@ -1263,7 +1298,7 @@ void PointCloudProc::addPosesToGraphBA(srrg2_solver::FactorGraphPtr& graph, std:
     poseVar->setGraphId(idx);
 
     // Set first variable as Fixed
-    if (idx == 0)
+    // if (idx == 0)
       poseVar->setStatus(srrg2_solver::VariableBase::Status::Fixed);
 
     // Set estimate with noise
@@ -1331,6 +1366,32 @@ void PointCloudProc::updateLeafsPosition(srrg2_solver::FactorGraphPtr& graph, st
     // varPose->estimate() * lastPoseInGraph.inverse() * 
     kdTrees_.at(i)->applyTransform(poseInc.linear(), poseInc.translation());  
   }
+}
+
+void PointCloudProc::rawOptimizeSurfels(const std::vector<SynthSurfel> & surfelsIn, std::vector<SynthSurfel> & surfelsOut){
+
+  // std::vector<Eigen::Isometry3d> surfelsOut;
+  // surfelsOut = surfelsIn;
+
+  // Iterate through all surfels
+  for (auto s : surfelsIn) {
+    double A = 0;
+    double b = 0;
+    for (int i = 0; i < s.observations_.size(); i++) {
+      Eigen::Vector3d measPos = s.observations_.at(i).block<3, 1>(0, 0);
+      Eigen::Vector3d measNorm = s.observations_.at(i).block<3, 1>(0, 1);
+
+      double e = s.estNormal_.dot(s.estPosition_ - measPos);
+      A += 1;
+      b += 1 * e;     
+    }
+    double dx = -b / A;
+    SynthSurfel newSurf;
+    newSurf = s;
+    newSurf.estPosition_ += dx * s.estNormal_;
+    surfelsOut.push_back(newSurf);
+  }
+
 }
 
  void PointCloudProc::optimizeFactorGraph(srrg2_solver::FactorGraphPtr &graph){
@@ -1549,9 +1610,9 @@ void PointCloudProc::updateLeafsPosition(srrg2_solver::FactorGraphPtr& graph, st
       tfStamped.transform.rotation.w = quat.w();
       // transformBroadcaster_.sendTransform(tfStamped);
       static int markerColor = 0;
-      float radius = surfels_.at(cnt)->getLargestRadius();
-      // float radius = 0.2;
-      float thickness = 0.01;
+      // float radius = surfels_.at(cnt)->getLargestRadius();
+      float radius = 0.2;
+      float thickness = 0.1;
       visual_tools_->publishCylinder(varSurf->estimate().cast<double>(), static_cast<rviz_visual_tools::colors>(markerColor++ % 11), thickness, radius);
       cnt++;
     }
