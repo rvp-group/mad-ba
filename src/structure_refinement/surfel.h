@@ -20,7 +20,6 @@
 #include <Eigen/Eigen>
 #include <iostream>
 #include <vector>
-
 #include "json.hpp"
 
 namespace structure_refinement {
@@ -48,6 +47,8 @@ class Surfel : public srrg2_core::MessageSinkBase {
     // double radius_;
     // Eigen::Vector3d normal_;
     // Eigen::VectorXd uncertainty_;
+    Eigen::Vector3d estPosition_; // Initial estimate of position
+    Eigen::Vector3d estNormal_; //Initial estimate of normal
     std::map<unsigned int, std::set<unsigned int>> poseSurfelsIds_;  // Corresponding id's of surfels in given poses | PoseId -> SurfelId its (id in kdTree vector)
                                                                // It is used for matching other leafs from other kdTrees
     std::vector<Eigen::Isometry3d> odomPoses_;                 // Odometry poses from which the surfel was observed | Indices correspond to observations_

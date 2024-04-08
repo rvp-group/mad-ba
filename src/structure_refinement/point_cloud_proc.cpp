@@ -20,6 +20,7 @@
 #include <tf2/LinearMath/Quaternion.h>
 #include <cmath>
 #include <rviz/SendFilePath.h>
+#include <srrg_system_utils/chrono.h>
 
 
 namespace structure_refinement {
@@ -62,30 +63,21 @@ namespace structure_refinement {
 
   bool PointCloudProc::putMessage(srrg2_core::BaseSensorMessagePtr msg) {
       
+      srrg2_core::Chrono ch1("putMessage", &_timings, false);
       // Whether to use synthetic data
       bool useSynthethicData = false;
 
       // Skip first n messages and process only m first clouds
       int cloudsToSkip = 100;
-      int cloudsToProcess = 10;
+      int decimateRealData = 15;
+      int cloudsToProcess = 6 * decimateRealData;
       static int msgCnt = -1;
       if (++msgCnt < 2 * cloudsToSkip) {
         return true;
       } else if (msgCnt > 2 * (cloudsToSkip + cloudsToProcess) - 1) {
-        // Publish results before exit
-        //   publishCloudNormals(kdTreeLeafes_.size() - 1);
-        
-        // publishCloudNormals(1);
-        // publishCloudNormals(2);
-
-        // visualizeCorrespondingSurfelsWithPoses();
-        //   ros::Duration(5.0).sleep();
-        // handleFactorGraph();
         handleFactorGraphBA();
-        // createBAGraph();
-
-          // visualizePointClouds();
-        ros::Duration(2.0).sleep();
+        ros::Duration(1.0).sleep();
+        srrg2_core::Chrono::printReport(_timings);
         exit(0);
       }
 
@@ -116,7 +108,7 @@ namespace structure_refinement {
           // Try to convert the message to srrg2 point cloud
           if (PointCloud2MessagePtr cloud = std::dynamic_pointer_cast<PointCloud2Message>(msg)) {
               static int cloudMsgCnt = 0;
-              if (cloudMsgCnt++ % 20 == 0) {
+              if (cloudMsgCnt++ % decimateRealData == 0) {
                 std::cout << std::setprecision(12) << "Point cloud message no." << cloudMsgCnt << " Ts: " << cloud->timestamp.value() << std::endl;
                 handleCloudMessage(cloud);
               }
@@ -124,14 +116,13 @@ namespace structure_refinement {
           // Try to convert the message to srrg2 odometry
           else if (OdometryMessagePtr odom = std::dynamic_pointer_cast<OdometryMessage>(msg)) {
             static int odomMsgCnt = 0;
-            if (odomMsgCnt++ % 20 == 0) {
+            if (odomMsgCnt++ % decimateRealData == 0) {
               std::cout << std::setprecision(12) << "Odometry message no." << odomMsgCnt << " Ts: " << odom->timestamp.value() << std::endl;
               handleOdometryMessage(odom);
               addNoiseToLastPose();
-
             }
           }
-          // Try to convert the message to srrg2 odometry
+          // Try to convert the message to tf message
           else if (TransformEventsMessagePtr tfMsg = std::dynamic_pointer_cast<TransformEventsMessage>(msg)) {
               static int tfMsgCnt = 0;
               std::cout << std::setprecision(12) << "Transform message no." << tfMsgCnt++ << " Ts: " << tfMsg->timestamp.value() << std::endl;
@@ -348,13 +339,13 @@ namespace structure_refinement {
   }
 
   void PointCloudProc::mergeSurfels() {
-
-      // Parameters for merging
-      // Max distance between two surfels to consider the merge
-      double maxDistance = 0.3;
-      double maxDistanceNorm = 0.6;
-      // Max angle between two surfels to consider the merge
-      double maxAngle = 5 * M_PI / 180.0;
+    srrg2_core::Chrono ch1("mergeSurfels", &_timings, false);
+    // Parameters for merging
+    // Max distance between two surfels to consider the merge
+    double maxDistance = 0.3;
+    double maxDistanceNorm = 0.6;
+    // Max angle between two surfels to consider the merge
+    double maxAngle = 5 * M_PI / 180.0;
 
     //   Eigen::Isometry3d surfelPose = Eigen::Isometry3d::Identity();
       // u_long markerColor = 0;
@@ -372,7 +363,11 @@ namespace structure_refinement {
                   // std::shared_ptr<TreeNodeType> surfelB = std::shared_ptr<TreeNodeType>(kdTreetmpp->bestMatchingLeafFast(surfelA->mean_));
                   // Get pointer to a surfelB
                   TreeNodeType* leafI = kdTreeLeafes_[i].at(idLeafI);
-                  TreeNodeType* leafJ = kdTrees_.at(j)->bestMatchingLeafFast(leafI->mean_);
+                  TreeNodeType* leafJ;
+                  {
+                    srrg2_core::Chrono ch2("bestMatchingLeafFast: ", &_timings, false);
+                    leafJ = kdTrees_.at(j)->bestMatchingLeafFast(leafI->mean_);
+                  }
                 //   std::cout << "Mean of the leaf:  "<< leafI->mean_ << std::endl;
                   //   std::cout << "SurfelB size:  "  << surfelB->num_points_ << std::endl;
                   //   auto& surfelB = (kdTrees_.at(j))->bestMatchingLeafFast(surfelA->mean_);
@@ -381,13 +376,12 @@ namespace structure_refinement {
                   // or rewrite it from the parent or use only first col of eigen matrix
                   // if (leafI->num_points_ == 1 || leafJ->num_points_ == 1)
                     // continue;
-
                   double distance = (leafJ->mean_ - leafI->mean_).norm();
                   double distanceNorm = abs((leafJ->mean_ - leafI->mean_).dot(leafI->eigenvectors_.col(0)));
                   if (distance < maxDistance || distanceNorm < maxDistanceNorm) {
                       double angle = angleBetween2Vectors(leafI->eigenvectors_.col(0), leafJ->eigenvectors_.col(0));
                       if (angle < maxAngle) {
-                          // Visualize the surfels for merge
+                        // Visualize the surfels for merge
                         //   visualizeSurfel(leafI, markerColor % 14);
                         //   visualizeSurfel(leafJ, markerColor % 14);
                         //   markerColor++;
@@ -395,7 +389,11 @@ namespace structure_refinement {
 
                           // Need to find the leafJid in the vector anyway:
                           // ToDo optimize somehow because its very slow - give ids to surfels or sth
-                          int idTmp = findLeafId(j, leafJ);
+                          int idTmp;
+                          {
+                            srrg2_core::Chrono ch3("findLeafId: ", &_timings, false);
+                            idTmp = findLeafId(j, leafJ);                            
+                          }
                           if (idTmp == -1){
                               std::cerr << "Not found id of existing leaf" << std::endl;
                               exit(0);
@@ -408,9 +406,11 @@ namespace structure_refinement {
                           int cnt = -1;
                           int cntI = -1, cntJ = -1;
                           bool skip = false;
+                          srrg2_core::Chrono ch2("Rest of merging loop: ", &_timings, false);
                           for (std::shared_ptr<Surfel> & tmpSurfel : surfels_) {
                             cnt++;
                             // If that surfel already exists in pose I:
+
                               if (tmpSurfel->checkIfsurfelIdExists(i, idLeafI)) {
                                   surfel = tmpSurfel;
                                   foundSurfelI = true;
@@ -426,35 +426,22 @@ namespace structure_refinement {
                               if (foundSurfelI && foundSurfelJ) {
                                 if (cntI == cntJ) {
                                   skip = true;
-                                  // std::cout << "Leafs belong to the same surfel " << std::endl;
                                   break;
                                 }
                                 else
                                 {
-                                  // std::cout << "Leafs belong to two different surfels " << std::endl;
-                                  // ToDo Merge them ?
                                   skip = true;
                                   break;
                                 }
                               }
-                              // if (foundSurfelI != foundSurfelI) {
-                              //   std::cout << "Different" << std::endl;
-                              // }
-                              // if (foundSurfelI) {
-                              //   std::cout << "found I "  << cnt << std::endl;
-                              // }
-                              // if (foundSurfelJ)
-                              //     std::cout << "found J " << cnt << std::endl;
-
-                              // if (foundSurfelI || foundSurfelJ)
-                              //   break;
                           }
-                          if (skip)
+                            if (skip)
                             continue;
 
                           // Check if given surfel has already correspondence in pose I or J
                           // At this point only one foundSurfel should be true
                           if (surfel) {
+                            srrg2_core::Chrono ch5("checkIfPoseExists: ", &_timings, false);
                             if (foundSurfelI)
                               if (surfel->checkIfPoseExists(j))
                                 continue;
@@ -463,9 +450,6 @@ namespace structure_refinement {
                               if (surfel->checkIfPoseExists(i))
                                 continue;
                           }
-                          //
-                          // if (foundSurfelI && foundSurfelJ)
-                          // std::cout << "Oh fuck" << std::endl;
 
                           // If surfel doesnt exists then create it
                           if (!surfel) {
@@ -474,18 +458,20 @@ namespace structure_refinement {
 
                           // Create observation for given surfel from pose I
                           if (!foundSurfelI) {
-                              Eigen::Matrix<double, 3, 5> observationI = Eigen::Matrix<double, 3, 5>::Identity();
-                              observationI.block<3, 3>(0, 0) = leafI->eigenvectors_;
-                              observationI.block<3, 1>(0, 3) = leafI->mean_;
-                              observationI.block<3, 1>(0, 4) = leafI->bbox_;
-                              // if (posesInGraph_.size() == 0)
-                                // surfel->addObservation(poses_.at(i), i, observationI);
-                              // else
-                                surfel->addObservation(posesInGraph_.at(i), i, observationI);
+                            srrg2_core::Chrono ch6("addingObservation: ", &_timings, false);
+                            Eigen::Matrix<double, 3, 5> observationI = Eigen::Matrix<double, 3, 5>::Identity();
+                            observationI.block<3, 3>(0, 0) = leafI->eigenvectors_;
+                            observationI.block<3, 1>(0, 3) = leafI->mean_;
+                            observationI.block<3, 1>(0, 4) = leafI->bbox_;
+                            // if (posesInGraph_.size() == 0)
+                            // surfel->addObservation(poses_.at(i), i, observationI);
+                            // else
+                              surfel->addObservation(posesInGraph_.at(i), i, observationI);
                           }
 
                           // Create observation for given surfel from pose J
                           if (!foundSurfelJ) {
+                            srrg2_core::Chrono ch7("addingObservation: ", &_timings, false);
                             Eigen::Matrix<double, 3, 5> observationJ = Eigen::Matrix<double, 3, 5>::Identity();
                             observationJ.block<3, 3>(0, 0) = leafJ->eigenvectors_;
                             observationJ.block<3, 1>(0, 3) = leafJ->mean_;
@@ -507,7 +493,6 @@ namespace structure_refinement {
                       }
                   }
               }
-              visual_tools_->trigger();
               std::cout << " i: " << i << "  j:  " << j << std::endl;
               std::cout << " Matched surfels "  << matchedSurfels << std::endl;
           }
@@ -515,9 +500,9 @@ namespace structure_refinement {
   }
 
   int PointCloudProc::findLeafId(unsigned int kdTreeId, TreeNodeTypePtr leaf) {
-      for (unsigned int i = 0; i < kdTreeLeafes_[kdTreeId].size(); i++) {
-          if (leaf->mean_ == kdTreeLeafes_[kdTreeId].at(i)->mean_)
-              return i;
+    for (unsigned int i = 0; i < kdTreeLeafes_[kdTreeId].size(); i++) {
+      if (leaf->mean_ == kdTreeLeafes_[kdTreeId].at(i)->mean_)
+        return i;
       }
       return -1;
   }
@@ -964,11 +949,7 @@ namespace structure_refinement {
 
   // BA-like factor graph
   void PointCloudProc::handleFactorGraphBA() {
-    // Merge surfels (find correspondences)
-    // mergeSurfels();
-    // Visualize the surfels
-    // visualizeCorrespondingSurfelsWithPoses();
-
+    srrg2_core::Chrono ch1("handleFactorGraphBA: ", &_timings, false);
     // Create graph variable
     srrg2_solver::FactorGraphPtr graph(new srrg2_solver::FactorGraph);
     std::vector<Eigen::Isometry3d> surfelGTVector;
@@ -986,51 +967,43 @@ namespace structure_refinement {
       else
         addPosesToGraphBA(graph, posesInGraph_);
 
+      publishTFFromGraph(graph);
+      publishPointClouds();
+      publishTFFromGraph(graph);
+
       // Save actual values of poses to calculate the increments afterwards
       // Update it here, so that in mergeSurfels() function I can use posesInGraph_
       updatePosesInGraph(graph);
+      // Merge and visualize surfels
+      mergeSurfels();
+
+      // visualizeCorrespondingSurfelsWithPoses();
+      // ros::Duration(1.0).sleep();
+
+      // Add surfels
+      addSurfelsToGraphBA(graph);
+      visual_tools_->deleteAllMarkers();
+      publishSurfFromGraph(graph);
+
+      // Just for test - synthethic Surfel
+      // Generate multiple surfels
+      // visual_tools_->deleteAllMarkers();
+      // std::vector<SynthSurfel> surfelsWithNoise;
+      // surfelGTVector = addSynthSurfelsToGraphBA(graph, surfelsWithNoise);
+      // publishSurfFromGraph(graph);
+
+      // updatePosesInGraph(graph);
 
       // Visualize point clouds
-      //  reloadRviz();
-      // std::cout << "Reloading Rviz" << std::endl;
-      //  ros::Duration(3.0).sleep();
+          //  ros::Duration(3.0).sleep();
       // publishTFFromGraph(graph);
       // publishPointClouds();
       // publishTFFromGraph(graph);
 
 
-      // Merge and visualize surfels
-      // mergeSurfels();
-      // filterSurfels();
-
-      // visual_tools_->deleteAllMarkers();
-      // visualizeCorrespondingSurfelsWithPoses();
-      // ros::Duration(1.0).sleep();
-
-      // Add surfels
-      // addSurfelsToGraphBA(graph);
-
-      // // Just for test - synthethic Surfel
-      // Generate multiple surfels
-      visual_tools_->deleteAllMarkers();
-      std::vector<SynthSurfel> surfelsWithNoise;
-      surfelGTVector = addSynthSurfelsToGraphBA(graph, surfelsWithNoise);
-      publishSurfFromGraph(graph);
-
-      // updatePosesInGraph(graph);
-
-      // Visualize point clouds
-      //  reloadRviz();
-      // std::cout << "Reloading Rviz" << std::endl;
-          //  ros::Duration(3.0).sleep();
-      publishTFFromGraph(graph);
-      publishPointClouds();
-      publishTFFromGraph(graph);
-
-
       // Optimize the graph
-      rawOptimizeSurfels(surfelsWithNoise, surfelsAfterRawOptim);
       optimizeFactorGraph(graph);
+      rawOptimizeSurfels(surfels_);
 
       // Update kdTree and leafs (surfels) in the map frame, based on actual poses and poses before optimization
       // Only necessary when there are more than one iteration of merging the surfels
@@ -1038,56 +1011,61 @@ namespace structure_refinement {
 
       // Update for next iteration
       updatePosesInGraph(graph);
-
-      // Get the position of a surfel
-      // srrg2_solver::VariableSurfelAD1D* varSurfel = dynamic_cast<srrg2_solver::VariableSurfelAD1D*>(graph->variable(poses_.size()));
-      // std::cout << "Relative error between GT\nand optimized surfel pose: "  << std::endl << (surfelGT.inverse().cast<float>() * varSurfel->estimate()).matrix() << std::endl;
       ros::Duration(5.0).sleep();
     }
+    srrg2_core::Chrono ch2("Visualizations after optim.: ", &_timings, false);
 
     // Visualize point clouds
     publishTFFromGraph(graph);
     publishPointClouds();
     publishTFFromGraph(graph);
-    // visual_tools_->deleteAllMarkers();
+
+    // Visualize surfels
+    visual_tools_->deleteAllMarkers();
     publishSurfFromGraph(graph);
 
     // Calculate the error between poses after optimization and GT
     int poseCnt = 0;
     for (auto& pose : posesInGraph_) {
       // Use poses_ here instead of posesWithoutNoise_, so that the GT poses are when the point clouds are aligned (for visialization only)
-      Eigen::Isometry3d error = poses_.at(poseCnt).inverse() * pose;
+      Eigen::Isometry3d error = posesWithoutNoise_.at(poseCnt).inverse() * pose;
       std::cout << std::fixed << "Error for pose " << std::setprecision(2) <<  poseCnt << std::endl
                 << error.matrix() << std::endl;
       poseCnt++;
     }
 
-    // Calculate the error between surfels after optimization and GT
-    int surfelCnt = 0;
+    // // Calculate the error between surfels after optimization and GT
+    // int surfelCnt = 0;
     for (auto varIt : graph->variables()) {
       srrg2_solver::VariableSurfelAD1D* varSurf = dynamic_cast<srrg2_solver::VariableSurfelAD1D*>(varIt.second);
       if (!varSurf) {
         continue;
       }
-      Eigen::Isometry3f error = surfelGTVector.at(surfelCnt).inverse().cast<float>() * varSurf->estimate();
-      
-      Eigen::Isometry3f errorRaw = surfelGTVector.at(surfelCnt).inverse().cast<float>() * surfelsAfterRawOptim.at(surfelCnt).getIsometry();
-      std::cout << std::fixed << "Error for surfel " << std::setprecision(2) << surfelCnt << std::endl
-                << error.matrix() << std::endl;
-      std::cout << std::fixed << "Error for surfel optimization without solver " << std::setprecision(2) << surfelCnt << std::endl
-                << errorRaw.matrix() << std::endl;
-
-       std::cout << std::fixed << "Matrix GT " << std::setprecision(2) << std::endl
-                << surfelGTVector.at(surfelCnt).matrix() << std::endl;
-
-       std::cout << std::fixed << "Matrix Solver " << std::setprecision(2)  << std::endl
-                << varSurf->estimate().matrix() << std::endl;
-
-       std::cout << std::fixed << "Matrix No Solver " << std::setprecision(2)  << std::endl
-                 << surfelsAfterRawOptim.at(surfelCnt).getIsometry().matrix() << std::endl << std::endl;
-
-       surfelCnt++;
+      static int cnt = 0;
+      std::cout << std::setprecision(5) <<  "Diff between surfels optim " 
+      << (varSurf->estimate().translation() - surfels_.at(cnt)->estPosition_.cast<float>()).transpose() << std::endl;
+      if (cnt++ > 10)
+        break;
     }
+    //   Eigen::Isometry3f error = surfelGTVector.at(surfelCnt).inverse().cast<float>() * varSurf->estimate();
+      
+    //   Eigen::Isometry3f errorRaw = surfelGTVector.at(surfelCnt).inverse().cast<float>() * surfelsAfterRawOptim.at(surfelCnt).getIsometry();
+    //   std::cout << std::fixed << "Error for surfel " << std::setprecision(2) << surfelCnt << std::endl
+    //             << error.matrix() << std::endl;
+    //   std::cout << std::fixed << "Error for surfel optimization without solver " << std::setprecision(2) << surfelCnt << std::endl
+    //             << errorRaw.matrix() << std::endl;
+
+    //    std::cout << std::fixed << "Matrix GT " << std::setprecision(2) << std::endl
+    //             << surfelGTVector.at(surfelCnt).matrix() << std::endl;
+
+    //    std::cout << std::fixed << "Matrix Solver " << std::setprecision(2)  << std::endl
+    //             << varSurf->estimate().matrix() << std::endl;
+
+    //    std::cout << std::fixed << "Matrix No Solver " << std::setprecision(2)  << std::endl
+    //              << surfelsAfterRawOptim.at(surfelCnt).getIsometry().matrix() << std::endl << std::endl;
+
+    //    surfelCnt++;
+    // }
   }
 
 void PointCloudProc::updatePosesInGraph(srrg2_solver::FactorGraphPtr& graph) {
@@ -1368,10 +1346,11 @@ void PointCloudProc::updateLeafsPosition(srrg2_solver::FactorGraphPtr& graph, st
   }
 }
 
-void PointCloudProc::rawOptimizeSurfels(const std::vector<SynthSurfel> & surfelsIn, std::vector<SynthSurfel> & surfelsOut){
+void PointCloudProc::rawOptimizeSynthSurfels(const std::vector<SynthSurfel> & surfelsIn, std::vector<SynthSurfel> & surfelsOut){
 
   // std::vector<Eigen::Isometry3d> surfelsOut;
   // surfelsOut = surfelsIn;
+  srrg2_core::Chrono ch1("rawOptimizeSynthSurfels: ", &_timings, false);
 
   // Iterate through all surfels
   for (auto s : surfelsIn) {
@@ -1394,7 +1373,38 @@ void PointCloudProc::rawOptimizeSurfels(const std::vector<SynthSurfel> & surfels
 
 }
 
+void PointCloudProc::rawOptimizeSurfels(std::vector<std::shared_ptr<Surfel>> & surfelsIn){ //}, std::vector<SynthSurfel> & surfelsOut){
+
+  // std::vector<Eigen::Isometry3d> surfelsOut;
+  // surfelsOut = surfelsIn;
+  srrg2_core::Chrono ch1("rawOptimizeSurfels: ", &_timings, false);
+
+  // Iterate through all surfels
+  for (auto s : surfelsIn) {
+    double A = 0;
+    double b = 0;
+    // Set the initial estimates to the first observations - the same as in the case of using solver
+    s->estPosition_ = s->observations_.at(0).block<3, 1>(0, 3);
+     s->estNormal_ = s->observations_.at(0).col(0); // block<3, 1>(0, 1);
+    // s.estNormal_ = s.observations_.at(0).block<3, 1>(0, 1);
+
+    for (int i = 0; i < s->observations_.size(); i++) {
+      Eigen::Vector3d measPos = s->observations_.at(i).block<3, 1>(0, 3);
+      Eigen::Vector3d measNorm = s->observations_.at(i).block<3, 1>(0, 0);
+
+      double e = s->estNormal_.dot(s->estPosition_ - measPos);
+      A += 1;
+      b += 1 * e;     
+    }
+    double dx = -b / A;
+    s->estPosition_ += dx * s->estNormal_;
+  }
+
+}
+
  void PointCloudProc::optimizeFactorGraph(srrg2_solver::FactorGraphPtr &graph){
+
+    srrg2_core::Chrono ch1("optimizeFactorGraph: ", &_timings, false);
 
     // Instanciate a solver
     srrg2_solver::Solver solver;
@@ -1409,11 +1419,11 @@ void PointCloudProc::rawOptimizeSurfels(const std::vector<SynthSurfel> & surfels
 
     // Connect the graph to the solver and compute
     solver.setGraph(graph);
-    solver.saveGraph("before.graph");
+    // solver.saveGraph("before.graph");
 
     // Optimize the graph
     solver.compute();
-    solver.saveGraph("after.graph");
+    // solver.saveGraph("after.graph");
     // Visualize statistics and exit
     const auto& stats = solver.iterationStats();
     std::cout << "performed [" << FG_YELLOW(stats.size()) << "] iterations" << std::endl;
@@ -1610,9 +1620,9 @@ void PointCloudProc::rawOptimizeSurfels(const std::vector<SynthSurfel> & surfels
       tfStamped.transform.rotation.w = quat.w();
       // transformBroadcaster_.sendTransform(tfStamped);
       static int markerColor = 0;
-      // float radius = surfels_.at(cnt)->getLargestRadius();
-      float radius = 0.2;
-      float thickness = 0.1;
+      float radius = surfels_.at(cnt)->getLargestRadius();
+      // float radius = 0.2;
+      float thickness = 0.05;
       visual_tools_->publishCylinder(varSurf->estimate().cast<double>(), static_cast<rviz_visual_tools::colors>(markerColor++ % 11), thickness, radius);
       cnt++;
     }

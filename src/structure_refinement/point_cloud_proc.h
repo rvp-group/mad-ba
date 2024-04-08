@@ -96,7 +96,8 @@ namespace structure_refinement {
     void updateLeafsPosition(srrg2_solver::FactorGraphPtr&, std::vector<Eigen::Isometry3d>&);
     void updatePosesInGraph(srrg2_solver::FactorGraphPtr &);
     void reloadRviz();
-    void rawOptimizeSurfels(const std::vector<SynthSurfel> & surfelsIn, std::vector<SynthSurfel> & surfelsOut);
+    void rawOptimizeSynthSurfels(const std::vector<SynthSurfel> & surfelsIn, std::vector<SynthSurfel> & surfelsOut);
+    void rawOptimizeSurfels(std::vector<std::shared_ptr<Surfel>> & surfelsIn);
 
    protected:
     using PointUnprojectorBase = srrg2_core::PointUnprojectorBase_<srrg2_core::PointNormalIntensity3fVectorCloud>;
@@ -136,6 +137,8 @@ namespace structure_refinement {
     // Rviz Visualization Tools
     rviz_visual_tools::RvizVisualToolsPtr visual_tools_;
     ros::ServiceClient clientRviz_;
+    srrg2_core::Chrono::ChronoMap _timings;
+
   };
 
   using PointCloudProcPtr = std::shared_ptr<PointCloudProc>;
