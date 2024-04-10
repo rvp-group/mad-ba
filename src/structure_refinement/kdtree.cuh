@@ -38,7 +38,19 @@ public:
 
   void applyTransform(const Eigen::Matrix3d& r, const Eigen::Vector3d& t);
 
-  inline TreeNode3D* bestMatchingLeafFast(const Eigen::Vector3d& query);
+  __host__ __device__ inline TreeNode3D* bestMatchingLeafFast(const Eigen::Vector3d& query);
+
+  __host__ __device__ int doNothing(int a ){ return 2*a;}
+
+
+ __host__ __device__ void bestTest(const Eigen::Vector3d& query) {
+  TreeNode3D* node = this;
+  while (node->left_ || node->right_) {
+    const Eigen::Vector3d& _split_plane_normal = node->eigenvectors_.col(2);
+    node = node->left_;//((query - node->mean_).dot(_split_plane_normal) < double(0.0)) ? node->left_ : node->right_;
+  }
+}
+
   
   inline void build(
              const IteratorType begin,

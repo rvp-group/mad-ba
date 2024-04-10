@@ -21,6 +21,7 @@
 #include <cmath>
 #include <rviz/SendFilePath.h>
 #include <srrg_system_utils/chrono.h>
+#include "data_association.cuh"
 
 
 namespace structure_refinement {
@@ -75,7 +76,10 @@ namespace structure_refinement {
       if (++msgCnt < 2 * cloudsToSkip) {
         return true;
       } else if (msgCnt > 2 * (cloudsToSkip + cloudsToProcess) - 1) {
-        handleFactorGraphBA();
+        // handleFactorGraphBA();
+        DataAssociation da;
+        // std::vector<std::shared_ptr<float>> tmp;
+        da.prepareData(kdTrees_);
         ros::Duration(1.0).sleep();
         srrg2_core::Chrono::printReport(_timings);
         exit(0);

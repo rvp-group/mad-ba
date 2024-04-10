@@ -1,7 +1,7 @@
 #pragma once
 
 #include "kd_utils.h"
-#include "kdtree.h"
+#include "kdtree.cuh"
 
 #include <Eigen/Eigenvalues>
 #include <future>

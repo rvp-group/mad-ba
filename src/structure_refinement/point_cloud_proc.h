@@ -42,8 +42,7 @@
 #include "srrg_solver/variables_and_factors/types_krzystof/instances.h"
 #include "srrg_solver/variables_and_factors/types_krzystof/variable_surfel.h"
 #include "srrg_solver/variables_and_factors/types_krzystof/se3_pose_surfel_factor_ad.h"
-
-
+#include "data_association.cuh"
 
 
 namespace structure_refinement {
