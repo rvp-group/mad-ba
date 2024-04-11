@@ -59,6 +59,7 @@ public:
 
   __host__ __device__ int doNothing(int a ){ return 2*a;}
 
+  // __host__ __device__ void TreeNode3D<ContainerType_>::bestMatchingEveryLeaf(const TreeNode3D<ContainerType_> & kdTreeToMatch);
 
  __host__ __device__ void bestTest(const Eigen::Vector3d& query) {
   TreeNode3D* node = this;
@@ -99,7 +100,8 @@ public:
   Eigen::Vector3d mean_;
   Eigen::Vector3d bbox_;
   Eigen::Matrix3d eigenvectors_;
-
+  int surfel_id_ = -1;
+  int poseId = -1;
   // TreeNode3D(const TreeNode3D &s){
   //   num_points_ = s.num_points_;
   //   matched_ = s.matched_;

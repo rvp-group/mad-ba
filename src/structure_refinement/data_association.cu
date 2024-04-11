@@ -3,51 +3,94 @@
 
 namespace structure_refinement {
 
-__global__ void associateDataKernel(int n, TreeNodeTypePtr *x) {
+uint64_t Surfelv2::counter_ = 0;
+
+__global__ void associateDataKernel(int numOfLeafs, int kdTreeAIdx, int kdTreeBIdx, TreeNodeTypePtr *kdTreeLeafesPtr, TreeNodeTypePtr *kdTreesPtr, SurfelMatches * matchPtr) {
   int index = blockIdx.x * blockDim.x + threadIdx.x;
   int stride = blockDim.x * gridDim.x;
-  for (int i = index; i < n; i += stride) {
-    Eigen::Vector3d querryPoint(5, 5, 5);
-    printf("Index  %d\n", i);
-    auto tmp = x[i]->bestMatchingLeafFast(querryPoint);
-    printf("Index  %d, point: (%f,%f,%f)\n", i, tmp->mean_[0], tmp->mean_[1], tmp->mean_[2]);
+  for (int i = index; i < numOfLeafs; i += stride) {
+    // printf("IndexA: %d, IndexB: %d\n", kdTreeAIdx, kdTreeBIdx);
+    matchPtr[i].surfelA = kdTreeLeafesPtr[i];
+    matchPtr[i].surfelB = kdTreesPtr[kdTreeBIdx]->bestMatchingLeafFast(kdTreeLeafesPtr[i]->mean_);
+    TreeNodeTypePtr surfelTmp = kdTreesPtr[kdTreeAIdx]->bestMatchingLeafFast(matchPtr[i].surfelB->mean_);
+    if (matchPtr[i].surfelA == surfelTmp)
+      matchPtr[i].matched = true;
+    else
+      matchPtr[i].matched = false;
+    // Eigen::Vector3d querryPoint(5, 5, 5);
+    // auto tmp = kdTreesPtr[i]->bestMatchingLeafFast(querryPoint);
+    // matchPtr[i].surfelA = kdTreesPtr[i];
+    // m[i].surfelB = x[i]->bestMatchingLeafFast(querryPoint)
+    // printf("Index  %d, point: (%f,%f,%f)\n", i, tmp->mean_[0], tmp->mean_[1], tmp->mean_[2]);
+      // matchPtr[i].tmp = 10 + i;
   }
 }
 
-__host__ void DataAssociation::prepareData(std::vector<std::shared_ptr<TreeNodeType>> kdTrees) {
+__host__ void DataAssociation::prepareData(std::vector<std::shared_ptr<TreeNodeType>> & kdTrees, std::vector<std::vector<TreeNodeTypePtr>> & kdTreeLeafes) {
 
-  // For test create vector without shared_ptr
   std::vector<TreeNodeTypePtr> kdTreePtrs;
   kdTreePtrs.reserve(kdTrees.size());
-  TreeNodeTypePtr * devInPtr;
-
+  TreeNodeTypePtr * devKdTreesPtr;
+    
   for (int i=0; i < kdTrees.size(); i++)
-  {
-    // kdTreeObjVec[i] = *kdTrees.at(i);
     kdTreePtrs.push_back(kdTrees[i].get());
-    printf("Adress: %p\n", kdTreePtrs.data()[i]);
+
+  // Copy the pointers of kdTrees to GPU (2nd input param)
+  size_t dataSize = kdTreePtrs.size() * sizeof(TreeNodeTypePtr);
+  cudaMalloc(&devKdTreesPtr, dataSize);
+  cudaMemcpy(devKdTreesPtr, kdTreePtrs.data(), dataSize, cudaMemcpyHostToDevice);
+
+  for (int i = 0; i < kdTrees.size() - 1; i++) {
+
+    // Copy the leafs for given kdTree (1st input param)
+    TreeNodeTypePtr *devKdTreeLeafesPtr;
+    size_t dataSizeLeafs = kdTreeLeafes.at(i).size() * sizeof(TreeNodeTypePtr);
+    cudaMalloc(&devKdTreeLeafesPtr, dataSizeLeafs);
+    cudaMemcpy(devKdTreeLeafesPtr, kdTreeLeafes.at(i).data(), dataSizeLeafs, cudaMemcpyHostToDevice);
+
+    // Copy the container for surfelMatches to GPU (output)
+    std::vector<SurfelMatches> kdTreeMatches(kdTreeLeafes.at(i).size());
+    // kdTreeMatches.reserve(kdTreeLeafes.at(0).size());
+    SurfelMatches *devSurfelMatchesPtr;
+
+    size_t dataSizeMatches = kdTreeMatches.size() * sizeof(SurfelMatches);
+    cudaMalloc(&devSurfelMatchesPtr, dataSizeMatches);
+    // It's necessary to Memcpy this empty data also. Or maybe not?
+    // cudaMemcpy(devSurfelMatchesPtr, kdTreeMatches.data(), dataSizeMatches, cudaMemcpyHostToDevice);
+
+    // Call the kernel
+    int numSMs;
+    cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
+
+    // associateDataKernel<<<32 * numSMs, 256>>>(kdTreePtrs.size(), devInPtr, devSurfelMatchesPtr);
+    for (int j = i + 1; j < kdTrees.size(); j++)
+      associateDataKernel<<<32 * numSMs, 256>>>(kdTreeLeafes.at(i).size(), i, j, devKdTreeLeafesPtr, devKdTreesPtr, devSurfelMatchesPtr);
+
+    // Copy the results back
+    cudaMemcpy(kdTreeMatches.data(), devSurfelMatchesPtr, dataSizeMatches, cudaMemcpyDeviceToHost);
+    
+    processTheSurfelMatches(kdTreeMatches);
+
+    int maxNum = 0;
+    for (int k=0; k < surfels_.size(); k++)
+    {
+      int num = surfels_.at(k).leafs_.size();
+      if (num > maxNum)
+        maxNum = num;
+    }
+    std::cout << "Num of surfels " << surfels_.size()  << " Max surfels:  " << maxNum << std::endl;
+
+    // for (int j=0; j < 10; j++)
+    // {
+      // auto tmp = kdTrees.at(i)->bestMatchingLeafFast(kdTreeLeafes[0].at(j)->mean_);
+      // std::cout << "Output 1: " << tmp->mean_.transpose() << std::endl;
+      // std::cout << "Output 2: "  << kdTreeMatches.at(j).surfelB->mean_.transpose() << std::endl;
+      // std::cout << kdTreeMatches.at(j).matched << std::endl;
+    // }
+    // Free the cuda memory
+    cudaFree(devSurfelMatchesPtr);
+    cudaFree(devKdTreeLeafesPtr);
   }
-
-  // Copy the pointers to GPU
-  size_t dataSize = kdTrees.size() * sizeof(TreeNodeTypePtr);
-  cudaMalloc(&devInPtr, dataSize);
-  cudaMemcpy(devInPtr, kdTreePtrs.data(), dataSize, cudaMemcpyHostToDevice);
-
-  Eigen::Vector3d querryPoint(5, 5, 5);
-  for (int i = 0; i < kdTreePtrs.size(); i++) {
-    auto tmp = kdTreePtrs.at(i)->bestMatchingLeafFast(querryPoint);
-    std::cout << "CPU point:  " << tmp->mean_[0] << " " << tmp->mean_[1] << " " << tmp->mean_[2] << std::endl;
-  }
-  // Call the kernel
-  int numSMs;
-  cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
-  associateDataKernel<<<1, 256>>>(kdTreePtrs.size(), devInPtr);
-
-
-  // Alocate space for result
-  std::vector<TreeNodeType> kdTreeMatch;
-  kdTreeMatch.reserve(kdTrees.size());
-  TreeNodeType *devOutPtr;
 
   // Malloc data on GPU for the kdTree
   // size_t dataSize = kdTrees.size() * sizeof(TreeNodeType);
@@ -69,29 +112,39 @@ __host__ void DataAssociation::prepareData(std::vector<std::shared_ptr<TreeNodeT
   // cudaMallocManaged(&devInPtr, size);
   // cudaMallocManaged(&devOutPtr, size);
 
-
-
-  // Copy the results back
-  // cudaMemcpy(kdTreeMatch.data(), devOutPtr ,dataSize, cudaMemcpyHostToDevice);
-
   cudaDeviceSynchronize();
 
     // // Free memory
-  cudaFree(devInPtr);
-  cudaFree(devOutPtr);
+  cudaFree(devKdTreesPtr);
+  // cudaFree(devOutPtr);
+  // cudaFree(devSurfelMatchesPtr);
 
   std::cout << "Ended GPU computations " << std::endl;
-  // Allocate memory on GPU for input
-  // cudaMalloc(&dx, N *sizeof(float));
-  // Allocate memory on GPU for output
-  // cudaMalloc(&dy, N * sizeof(float));
-
-  // x = (float *)malloc(N * sizeof(float));
-  // y = (float *)malloc(N * sizeof(float));
-
-  // For each point in point cloud find the closest one
-
 }
+
+__host__ void DataAssociation::processTheSurfelMatches(std::vector<SurfelMatches> &matches) {
+  for (int i = 0; i < matches.size(); i++) {
+    if (!matches[i].matched)
+      continue;
+
+    int idSurfelA = matches[i].surfelA->surfel_id_;
+    int idSurfelB = matches[i].surfelB->surfel_id_;
+    if (idSurfelA != -1 && idSurfelA != -1)
+      std::cout << "Both belong to some surfel" << std::endl;
+    if (idSurfelA != -1)
+      surfels_.at(idSurfelA).addLeaf(matches[i].surfelB);
+    else if (idSurfelB != -1)
+      surfels_.at(idSurfelB).addLeaf(matches[i].surfelA);
+    else {
+      Surfelv2 newSurfel;
+      // std::cout << "Surfel ID " << newSurfel.id_ << std::endl;
+      newSurfel.addLeaf(matches.at(i).surfelA);
+      newSurfel.addLeaf(matches.at(i).surfelB);
+      surfels_.push_back(newSurfel);
+    }
+  }
+}
+
 
 __host__ void DataAssociation::prepareDataExample() {
   // int N = 1 << 20;

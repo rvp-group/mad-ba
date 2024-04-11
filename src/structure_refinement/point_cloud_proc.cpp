@@ -66,12 +66,12 @@ namespace structure_refinement {
       
       srrg2_core::Chrono ch1("putMessage", &_timings, false);
       // Whether to use synthetic data
-      bool useSynthethicData = false;
+      bool useSynthethicData = true;
 
       // Skip first n messages and process only m first clouds
       int cloudsToSkip = 100;
       int decimateRealData = 15;
-      int cloudsToProcess = 6 * decimateRealData;
+      int cloudsToProcess = 6;// * decimateRealData;
       static int msgCnt = -1;
       if (++msgCnt < 2 * cloudsToSkip) {
         return true;
@@ -79,12 +79,13 @@ namespace structure_refinement {
         // handleFactorGraphBA();
         DataAssociation da;
         // std::vector<std::shared_ptr<float>> tmp;
-        da.prepareData(kdTrees_);
+        da.prepareData(kdTrees_, kdTreeLeafes_);
+        // std::vector<Surfelv2> & surfelsv2 = da.getSurfels();
+        visializeSurfelsv2(da.getSurfels());
         ros::Duration(1.0).sleep();
         srrg2_core::Chrono::printReport(_timings);
         exit(0);
       }
-
       if (useSynthethicData) {
           // Simulate pose, cloud, pose, cloud messages
           static bool msgType = 0;
@@ -104,7 +105,7 @@ namespace structure_refinement {
               sensor_msgs::PointCloud2Ptr cloudMsgSynthPtr(new sensor_msgs::PointCloud2());
               generateSyntheticPointCloud(*cloudMsgSynthPtr);
               PointCloud2MessagePtr cloudSrrg = std::dynamic_pointer_cast<PointCloud2Message>(Converter::convert(cloudMsgSynthPtr));
-              // addNoiseToLastPose();
+              addNoiseToLastPose();
               handleCloudMessage(cloudSrrg);
           }
       } else {
@@ -210,6 +211,43 @@ namespace structure_refinement {
           }
       }
       visual_tools_->trigger();
+  }
+
+  void PointCloudProc::visializeSurfelsv2(std::vector<Surfelv2>& surfelsv2) {
+    Eigen::Isometry3d surfelPose = Eigen::Isometry3d::Identity();
+    uint8_t markerColor = 0;
+    long leafCnt = 0;
+    int surfelCnt = 0;
+    int decimation = 20;
+
+    //  Get all the surfels possible
+    for (auto surfel : surfelsv2) {
+      // Change color
+
+      if (surfelCnt++ % decimation != 0)
+        continue;
+
+      if (++markerColor > 14)
+        markerColor = 0;
+
+      if(surfelCnt > 50 * 20)
+        break;
+      // Get the surfels
+      for (auto& leaf : surfel.leafs_) {
+        // Decimate for Rviz
+        // if (leafCnt++ % decimation != 0)
+        //   continue;
+
+        // Set the translation part
+        surfelPose.translation() = Eigen::Vector3d(leaf->mean_);
+        // Calculate the rotation matrix
+        Eigen::Matrix3d rotMatrix = matrixBetween2Vectors(Eigen::Vector3d(1, 0, 0), leaf->eigenvectors_.col(0));
+        surfelPose.linear() = rotMatrix;
+        // Publish normal as arrow
+        visual_tools_->publishArrow(surfelPose, static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::XXXLARGE);
+      }
+    }
+    visual_tools_->trigger();
   }
 
   void PointCloudProc::visualizeSurfelPoses() {

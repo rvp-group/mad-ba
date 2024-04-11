@@ -73,6 +73,7 @@ namespace structure_refinement {
     void visualizeCorrespondingSurfelsWithPoses();
     void saveSurfelsTofile();
     void filterSurfels();
+    void visializeSurfelsv2(std::vector<Surfelv2> &surfelsv2);
 
     int findLeafId(unsigned int, TreeNodeTypePtr);  // Find the id of a leaf in a given kdTree
     void generateSyntheticPointCloud(sensor_msgs::PointCloud2 &);
