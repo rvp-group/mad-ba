@@ -9,8 +9,23 @@
 
 #include <atomic>
 
+class Managed {
+public:
+  void *operator new(size_t len) {
+    void *ptr;
+    cudaMallocManaged(&ptr, len);
+    cudaDeviceSynchronize();
+    return ptr;
+  }
+
+  void operator delete(void *ptr) {
+    cudaDeviceSynchronize();
+    cudaFree(ptr);
+  }
+};
+
 template <typename ContainerType_>
-class TreeNode3D {
+class TreeNode3D : public Managed {
 public:
   using ContainerType    = ContainerType_;
   using ContainerTypePtr = std::shared_ptr<ContainerType>;
@@ -35,6 +50,8 @@ public:
     if (right_)
       delete right_;
   }
+
+
 
   void applyTransform(const Eigen::Matrix3d& r, const Eigen::Vector3d& t);
 
@@ -83,7 +100,14 @@ public:
   Eigen::Vector3d bbox_;
   Eigen::Matrix3d eigenvectors_;
 
-protected:
+  // TreeNode3D(const TreeNode3D &s){
+  //   num_points_ = s.num_points_;
+  //   matched_ = s.matched_;
+  //   mean_ = s.mean_;
+  //   bbox_ = s.bbox_;
+  //   eigenvectors_ = s.eigenvectors_;
+  // }
+// protected:
   TreeNode3D(){};
 };
 

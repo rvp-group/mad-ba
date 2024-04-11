@@ -10,6 +10,8 @@
 namespace structure_refinement {
 using ContainerType = std::vector<Eigen::Vector3d>;
 using TreeNodeType = TreeNode3D<ContainerType>;
+using TreeNodeTypePtr = TreeNodeType*;
+
 class DataAssociation {
 public:
   DataAssociation() {}

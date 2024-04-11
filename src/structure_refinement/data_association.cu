@@ -3,59 +3,76 @@
 
 namespace structure_refinement {
 
-__global__ void associateDataKernel(int n, TreeNodeType *x, TreeNodeType *y) {
+__global__ void associateDataKernel(int n, TreeNodeTypePtr *x) {
   int index = blockIdx.x * blockDim.x + threadIdx.x;
   int stride = blockDim.x * gridDim.x;
-
   for (int i = index; i < n; i += stride) {
     Eigen::Vector3d querryPoint(5, 5, 5);
     printf("Index  %d\n", i);
-    int b = x[i].doNothing(5);
-    printf("Index  %d\n", b);
-
-    x[i].bestTest(querryPoint);
-    printf("Index  %d\n", i);
-
-    // if (i == 2)
-    // printf("Index  %d, point: (%f,%f,%f)\n", i, tmp->mean_[0], tmp->mean_[1], tmp->mean_[2]);
-
+    auto tmp = x[i]->bestMatchingLeafFast(querryPoint);
+    printf("Index  %d, point: (%f,%f,%f)\n", i, tmp->mean_[0], tmp->mean_[1], tmp->mean_[2]);
   }
 }
 
 __host__ void DataAssociation::prepareData(std::vector<std::shared_ptr<TreeNodeType>> kdTrees) {
 
   // For test create vector without shared_ptr
-  std::vector<TreeNodeType> kdTreeObj;
-  kdTreeObj.reserve(kdTrees.size());
-  TreeNodeType *devInPtr;
+  std::vector<TreeNodeTypePtr> kdTreePtrs;
+  kdTreePtrs.reserve(kdTrees.size());
+  TreeNodeTypePtr * devInPtr;
 
   for (int i=0; i < kdTrees.size(); i++)
-    kdTreeObj.push_back(*kdTrees.at(i));
+  {
+    // kdTreeObjVec[i] = *kdTrees.at(i);
+    kdTreePtrs.push_back(kdTrees[i].get());
+    printf("Adress: %p\n", kdTreePtrs.data()[i]);
+  }
+
+  // Copy the pointers to GPU
+  size_t dataSize = kdTrees.size() * sizeof(TreeNodeTypePtr);
+  cudaMalloc(&devInPtr, dataSize);
+  cudaMemcpy(devInPtr, kdTreePtrs.data(), dataSize, cudaMemcpyHostToDevice);
+
+  Eigen::Vector3d querryPoint(5, 5, 5);
+  for (int i = 0; i < kdTreePtrs.size(); i++) {
+    auto tmp = kdTreePtrs.at(i)->bestMatchingLeafFast(querryPoint);
+    std::cout << "CPU point:  " << tmp->mean_[0] << " " << tmp->mean_[1] << " " << tmp->mean_[2] << std::endl;
+  }
+  // Call the kernel
+  int numSMs;
+  cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
+  associateDataKernel<<<1, 256>>>(kdTreePtrs.size(), devInPtr);
+
 
   // Alocate space for result
   std::vector<TreeNodeType> kdTreeMatch;
   kdTreeMatch.reserve(kdTrees.size());
   TreeNodeType *devOutPtr;
 
-  // Malloc data on GPU
-  size_t dataSize = kdTrees.size() * sizeof(TreeNodeType);
-  cudaMalloc((void **)&devInPtr, dataSize); 
-  cudaMalloc((void **)&devOutPtr, dataSize);
+  // Malloc data on GPU for the kdTree
+  // size_t dataSize = kdTrees.size() * sizeof(TreeNodeType);
+  // kdTreeObj[0]->doNothing(5);
+  // cudaMallocManaged((void **)&devInPtr, dataSize);
+  // devInPtr->build()
+
+  // cudaMallocManaged((void **)&devOutPtr, dataSize);
 
   // Copy memory
-  cudaMemcpy(devInPtr, kdTreeObj.data(), dataSize, cudaMemcpyHostToDevice);
+  // cudaMemcpy(devInPtr, kdTreeObj.data(), dataSize, cudaMemcpyHostToDevice);
+  
+
+  // Copy kdTrees leaf by leaf
+  // Iterate through all leafs
+  // for (int i =0; )
   //cudaMemcpy(d_y, y, N*sizeof(float), cudaMemcpyHostToDevice);
 
   // cudaMallocManaged(&devInPtr, size);
   // cudaMallocManaged(&devOutPtr, size);
 
-  // Call the kernel
-   int numSMs;
-  cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
-  associateDataKernel<<<1, 256>>>(kdTreeObj.size(), devInPtr, devOutPtr);
+
 
   // Copy the results back
-  cudaMemcpy(kdTreeMatch.data(), devOutPtr ,dataSize, cudaMemcpyHostToDevice);
+  // cudaMemcpy(kdTreeMatch.data(), devOutPtr ,dataSize, cudaMemcpyHostToDevice);
 
   cudaDeviceSynchronize();
 
