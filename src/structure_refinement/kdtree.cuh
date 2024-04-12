@@ -42,7 +42,8 @@ public:
              const int level,
              const int max_parallel_level,
              TreeNode3D* parent,
-             TreeNode3D* plane_predecessor);
+             TreeNode3D* plane_predecessor,
+             int pointCloudId);
 
   inline ~TreeNode3D() {
     if (left_)
@@ -78,7 +79,8 @@ public:
              const int level,
              const int max_parallel_level,
              TreeNode3D* parent,
-             TreeNode3D* plane_predecessor);
+             TreeNode3D* plane_predecessor,
+             int pointCloudId);
 
   static inline ThisType* makeSubtree(
                                const IteratorType begin,
@@ -88,9 +90,19 @@ public:
                                const int level,
                                const int max_parallel_level,
                                TreeNode3D* parent,
-                               TreeNode3D* plane_predecessor);
+                               TreeNode3D* plane_predecessor,
+                               int pointCloudId);
 
   inline void getLeafs(std::back_insert_iterator<std::vector<TreeNode3D*>> it);
+
+  inline void setSurfelId(int id){
+    if (surfel_id_ == -1)
+      surfel_id_ = id;
+    else{
+      std::cout << "trying to change existing id " << std::endl;
+      exit(0);
+    }
+  }
 
   int num_points_;
   bool matched_ = false;
@@ -101,7 +113,7 @@ public:
   Eigen::Vector3d bbox_;
   Eigen::Matrix3d eigenvectors_;
   int surfel_id_ = -1;
-  int poseId = -1;
+  int pointcloud_id_ = -1;
   // TreeNode3D(const TreeNode3D &s){
   //   num_points_ = s.num_points_;
   //   matched_ = s.matched_;

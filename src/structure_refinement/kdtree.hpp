@@ -18,7 +18,8 @@ inline TreeNode3D<ContainerType_>::TreeNode3D(
                                        const int level,
                                        const int max_parallel_level,
                                        TreeNode3D* parent,
-                                       TreeNode3D* plane_predecessor) {
+                                       TreeNode3D* plane_predecessor,
+                                       int pointCloudId) {
   build(
         begin,
         end,
@@ -27,7 +28,8 @@ inline TreeNode3D<ContainerType_>::TreeNode3D(
         level,
         max_parallel_level,
         parent,
-        plane_predecessor);
+        plane_predecessor,
+        pointCloudId);
 }
 
 template <typename ContainerType_>
@@ -39,7 +41,9 @@ inline void TreeNode3D<ContainerType_>::build(
                                        const int level,
                                        const int max_parallel_level,
                                        TreeNode3D* parent,
-                                       TreeNode3D* plane_predecessor) {
+                                       TreeNode3D* plane_predecessor,
+                                       int pointCloudId) {
+  pointcloud_id_ = pointCloudId;
   parent_ = parent;
   Eigen::Matrix3d cov;
   computeMeanAndCovariance(mean_, cov, begin, end);
@@ -99,7 +103,8 @@ inline void TreeNode3D<ContainerType_>::build(
                            level + 1,
                            max_parallel_level,
                            this,
-                           plane_predecessor);
+                           plane_predecessor,
+                           pointCloudId);
 
     right_ = new TreeNode3D(
                             middle,
@@ -109,7 +114,8 @@ inline void TreeNode3D<ContainerType_>::build(
                             level + 1,
                             max_parallel_level,
                             this,
-                            plane_predecessor);
+                            plane_predecessor,
+                            pointCloudId);
   } else {
     std::future<ThisType*> l = std::async(ThisType::makeSubtree,
                                          
@@ -120,7 +126,8 @@ inline void TreeNode3D<ContainerType_>::build(
                                           level + 1,
                                           max_parallel_level,
                                           this,
-                                          plane_predecessor);
+                                          plane_predecessor,
+                                          pointCloudId);
 
     std::future<ThisType*> r = std::async(ThisType::makeSubtree,
                                         
@@ -131,7 +138,8 @@ inline void TreeNode3D<ContainerType_>::build(
                                           level + 1,
                                           max_parallel_level,
                                           this,
-                                          plane_predecessor);
+                                          plane_predecessor,
+                                          pointCloudId);
     left_ = l.get();
     right_ = r.get();
   }
@@ -147,7 +155,8 @@ inline TreeNode3D<ContainerType_>* TreeNode3D<ContainerType_>::makeSubtree(
                                                                     const int level,
                                                                     const int max_parallel_level,
                                                                     TreeNode3D* parent,
-                                                                    TreeNode3D* plane_predecessor) {
+                                                                    TreeNode3D* plane_predecessor,
+                                                                    int pointCloudId) {
   return new TreeNode3D(
                         begin,
                         end,
@@ -156,7 +165,8 @@ inline TreeNode3D<ContainerType_>* TreeNode3D<ContainerType_>::makeSubtree(
                         level,
                         max_parallel_level,
                         parent,
-                        plane_predecessor);
+                        plane_predecessor,
+                        pointCloudId);
 }
 
 template <typename ContainerType_>
@@ -194,3 +204,17 @@ inline void TreeNode3D<ContainerType_>::applyTransform(const Eigen::Matrix3d& r,
   if (right_)
     right_->applyTransform(r, t);
 }
+
+// template <typename ContainerType_>
+// inline TreeNode3D<ContainerType_>*
+// TreeNode3D<ContainerType_>::bestMatchingEveryLeaf(const TreeNode3D<ContainerType_> & kdTreeToMatch)
+// {
+//   if (!left_ && !right_) {
+//     this->bestMatchingEveryLeaf(kdTreeToMatch);
+//     return;
+//   }
+//   if (left_)
+//     left_->bestMatchingEveryLeaf(kdTreeToMatch);
+//   if (right_)
+//     right_->bestMatchingEveryLeaf(kdTreeToMatch);
+// }

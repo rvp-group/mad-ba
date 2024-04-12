@@ -5,24 +5,30 @@ namespace structure_refinement {
 
 uint64_t Surfelv2::counter_ = 0;
 
-__global__ void associateDataKernel(int numOfLeafs, int kdTreeAIdx, int kdTreeBIdx, TreeNodeTypePtr *kdTreeLeafesPtr, TreeNodeTypePtr *kdTreesPtr, SurfelMatches * matchPtr) {
+__global__ void associateDataKernel(int numOfLeafs, int kdTreeAIdx, int kdTreeBIdx, TreeNodeTypePtr *kdTreeLeafesPtr, TreeNodeTypePtr *kdTreesPtr, SurfelMatches *matchPtr) {
   int index = blockIdx.x * blockDim.x + threadIdx.x;
   int stride = blockDim.x * gridDim.x;
   for (int i = index; i < numOfLeafs; i += stride) {
-    // printf("IndexA: %d, IndexB: %d\n", kdTreeAIdx, kdTreeBIdx);
+    // printf("I:  %d ,IndexA: %d, IndexB: %d\n",i, kdTreeAIdx, kdTreeBIdx);
+    matchPtr[i].matched = false;
     matchPtr[i].surfelA = kdTreeLeafesPtr[i];
     matchPtr[i].surfelB = kdTreesPtr[kdTreeBIdx]->bestMatchingLeafFast(kdTreeLeafesPtr[i]->mean_);
     TreeNodeTypePtr surfelTmp = kdTreesPtr[kdTreeAIdx]->bestMatchingLeafFast(matchPtr[i].surfelB->mean_);
-    if (matchPtr[i].surfelA == surfelTmp)
-      matchPtr[i].matched = true;
-    else
-      matchPtr[i].matched = false;
-    // Eigen::Vector3d querryPoint(5, 5, 5);
-    // auto tmp = kdTreesPtr[i]->bestMatchingLeafFast(querryPoint);
-    // matchPtr[i].surfelA = kdTreesPtr[i];
-    // m[i].surfelB = x[i]->bestMatchingLeafFast(querryPoint)
-    // printf("Index  %d, point: (%f,%f,%f)\n", i, tmp->mean_[0], tmp->mean_[1], tmp->mean_[2]);
-      // matchPtr[i].tmp = 10 + i;
+    // If surfelA <-> is closest to surfelB and vice verse
+    if (matchPtr[i].surfelA == surfelTmp) {
+      float maxD = 0.3;
+      float maxDNorm = 0.9;
+      float maxAngle = 5 * M_PI / 180.0;
+      float d = (matchPtr[i].surfelA->mean_ - matchPtr[i].surfelB->mean_).norm();
+      float dNorm = abs((matchPtr[i].surfelB->mean_ - matchPtr[i].surfelA->mean_).dot(matchPtr[i].surfelA->eigenvectors_.col(0)));
+      if (d < maxD || dNorm < maxDNorm) {
+        Eigen::Vector3f a = matchPtr[i].surfelA->eigenvectors_.col(0).cast<float>();
+        Eigen::Vector3f b = matchPtr[i].surfelB->eigenvectors_.col(0).cast<float>();
+        float angle = atan2(a.cross(b).norm(), a.dot(b));
+        if (angle < maxAngle)
+          matchPtr[i].matched = true;
+      }
+    }
   }
 }
 
@@ -63,23 +69,42 @@ __host__ void DataAssociation::prepareData(std::vector<std::shared_ptr<TreeNodeT
     cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
 
     // associateDataKernel<<<32 * numSMs, 256>>>(kdTreePtrs.size(), devInPtr, devSurfelMatchesPtr);
-    for (int j = i + 1; j < kdTrees.size(); j++)
+    for (int j = i + 1; j < kdTrees.size(); j++) {
+      // Copy the results back
+      // std::vector<SurfelMatches> kdTreeMatches(kdTreeLeafes.at(i).size());
+      // // kdTreeMatches.reserve(kdTreeLeafes.at(0).size());
+      // SurfelMatches *devSurfelMatchesPtr;
+
+      // size_t dataSizeMatches = kdTreeMatches.size() * sizeof(SurfelMatches);
+      // cudaMalloc(&devSurfelMatchesPtr, dataSizeMatches);
+
       associateDataKernel<<<32 * numSMs, 256>>>(kdTreeLeafes.at(i).size(), i, j, devKdTreeLeafesPtr, devKdTreesPtr, devSurfelMatchesPtr);
 
-    // Copy the results back
-    cudaMemcpy(kdTreeMatches.data(), devSurfelMatchesPtr, dataSizeMatches, cudaMemcpyDeviceToHost);
-    
-    processTheSurfelMatches(kdTreeMatches);
+      cudaMemcpy(kdTreeMatches.data(), devSurfelMatchesPtr, dataSizeMatches, cudaMemcpyDeviceToHost);
+      processTheSurfelMatches(kdTreeMatches);
+      // kdTreeMatches.clear();
+      // cudaFree(devSurfelMatchesPtr);
+      std::cout << "KdTree matching " << i << " with " << j << std::endl;
+    }
 
     int maxNum = 0;
+    int idx = 0;
     for (int k=0; k < surfels_.size(); k++)
     {
+      //  for (int l = 0; l < surfels_.at(k).leafs_.size(); l++)
+      // std::cout << "SurfelIdx : " << k <<  " SurfelId: " << surfels_.at(k).leafs_[l]->surfel_id_ << " Surfel Id2:  "  << surfels_.at(k).leafs_[l]->surfel_id_  << std::endl;
       int num = surfels_.at(k).leafs_.size();
-      if (num > maxNum)
+      if (num > maxNum){
         maxNum = num;
+        idx = k;
+      }
     }
-    std::cout << "Num of surfels " << surfels_.size()  << " Max surfels:  " << maxNum << std::endl;
-
+    // std::cout << "Num of surfels " << surfels_.size()  << " Max surfels:  " << maxNum << std::endl;
+    // for (int l = 0; l < surfels_.at(idx).leafs_.size(); l++)
+    // {
+      // std::cout << "Mean value: " << surfels_.at(idx).leafs_[l]->mean_.transpose()  << " Surfel id: " << surfels_.at(idx).leafs_[l]->surfel_id_ 
+      // << " Point Cloud id: " <<  surfels_.at(idx).leafs_[l]->pointcloud_id_ << std::endl;
+    // }
     // for (int j=0; j < 10; j++)
     // {
       // auto tmp = kdTrees.at(i)->bestMatchingLeafFast(kdTreeLeafes[0].at(j)->mean_);
@@ -88,7 +113,7 @@ __host__ void DataAssociation::prepareData(std::vector<std::shared_ptr<TreeNodeT
       // std::cout << kdTreeMatches.at(j).matched << std::endl;
     // }
     // Free the cuda memory
-    cudaFree(devSurfelMatchesPtr);
+    // cudaFree(devSurfelMatchesPtr);
     cudaFree(devKdTreeLeafesPtr);
   }
 
@@ -124,23 +149,36 @@ __host__ void DataAssociation::prepareData(std::vector<std::shared_ptr<TreeNodeT
 
 __host__ void DataAssociation::processTheSurfelMatches(std::vector<SurfelMatches> &matches) {
   for (int i = 0; i < matches.size(); i++) {
-    if (!matches[i].matched)
+    if (matches[i].matched == false)
       continue;
 
     int idSurfelA = matches[i].surfelA->surfel_id_;
     int idSurfelB = matches[i].surfelB->surfel_id_;
-    if (idSurfelA != -1 && idSurfelA != -1)
-      std::cout << "Both belong to some surfel" << std::endl;
-    if (idSurfelA != -1)
-      surfels_.at(idSurfelA).addLeaf(matches[i].surfelB);
-    else if (idSurfelB != -1)
-      surfels_.at(idSurfelB).addLeaf(matches[i].surfelA);
+    if ((idSurfelA != -1) && (idSurfelB != -1)){
+    }
+    else if (idSurfelA != -1){
+      // std::cout << "SurfelA found" << std::endl;
+      // Check if given surfel Already has leaf from that pose
+      int pointCloudBIdx =  matches[i].surfelB->pointcloud_id_;
+      if (surfels_.at(idSurfelA).hasLeafFromPointCloud(pointCloudBIdx) == false)
+        surfels_.at(idSurfelA).addLeaf(matches[i].surfelB);
+      // std::cout << "Matched1 "  << matches[i].surfelA->pointcloud_id_ << " with "  << matches[i].surfelB->pointcloud_id_ << std::endl;
+    }
+    else if (idSurfelB != -1){
+      // std::cout << "SurfelB found" << std::endl;
+      int pointCloudAIdx = matches[i].surfelA->pointcloud_id_;
+      if (surfels_.at(idSurfelB).hasLeafFromPointCloud(pointCloudAIdx) == false)
+        surfels_.at(idSurfelB).addLeaf(matches[i].surfelA);
+      // std::cout << "Matched2 " << matches[i].surfelA->pointcloud_id_ << " with " << matches[i].surfelB->pointcloud_id_ << std::endl;
+
+    }
     else {
       Surfelv2 newSurfel;
       // std::cout << "Surfel ID " << newSurfel.id_ << std::endl;
       newSurfel.addLeaf(matches.at(i).surfelA);
       newSurfel.addLeaf(matches.at(i).surfelB);
       surfels_.push_back(newSurfel);
+      // std::cout << "Matched3 " << matches[i].surfelA->pointcloud_id_ << " with " << matches[i].surfelB->pointcloud_id_ << std::endl;
     }
   }
 }

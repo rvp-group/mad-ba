@@ -27,8 +27,16 @@ class Surfelv2 {
   ~Surfelv2() {};
 
   void addLeaf(TreeNodeTypePtr &leaf) {
+    leaf->setSurfelId(this->id_);
     leafs_.push_back(leaf);
-    leaf->surfel_id_ = this->id_;
+  }
+
+  bool hasLeafFromPointCloud(int pointCloudIdx) {
+    for (TreeNodeTypePtr leaf : leafs_) {
+      if (leaf->pointcloud_id_ == pointCloudIdx)
+        return true;
+    }
+    return false;
   }
 
 //  protected:
