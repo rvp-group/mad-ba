@@ -50,6 +50,7 @@ public:
   ~DataAssociation() {}
 
   __host__ void prepareData(std::vector<std::shared_ptr<TreeNodeType>> &, std::vector<std::vector<TreeNodeTypePtr>> &);
+  __host__ void prepareDataCPU(std::vector<std::shared_ptr<TreeNodeType>> & kdTrees, std::vector<std::vector<TreeNodeTypePtr>> & kdTreeLeafes);
   __host__ void prepareDataExample();
   __host__ void processTheSurfelMatches(std::vector<SurfelMatches> &);
   __host__ std::vector<Surfelv2> & getSurfels() {return surfels_;}

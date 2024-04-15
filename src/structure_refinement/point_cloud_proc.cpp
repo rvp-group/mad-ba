@@ -66,22 +66,32 @@ namespace structure_refinement {
       
       srrg2_core::Chrono ch1("putMessage", &_timings, false);
       // Whether to use synthetic data
-      bool useSynthethicData = true;
+      bool useSynthethicData = false;
 
       // Skip first n messages and process only m first clouds
       int cloudsToSkip = 100;
       int decimateRealData = 15;
-      int cloudsToProcess = 6;// * decimateRealData;
+      int cloudsToProcess = 10 * decimateRealData;
       static int msgCnt = -1;
       if (++msgCnt < 2 * cloudsToSkip) {
         return true;
       } else if (msgCnt > 2 * (cloudsToSkip + cloudsToProcess) - 1) {
         // handleFactorGraphBA();
+        // publishPointClouds();
         DataAssociation da;
         // std::vector<std::shared_ptr<float>> tmp;
-        da.prepareData(kdTrees_, kdTreeLeafes_);
+        {
+          // srrg2_core::Chrono chGP("prepareData GPU", &_timings, false);
+          // da.prepareData(kdTrees_, kdTreeLeafes_);
+        }
+
+        {
+          srrg2_core::Chrono chGP2("prepareData CPU", &_timings, false);
+          da.prepareDataCPU(kdTrees_, kdTreeLeafes_);
+        }
         // std::vector<Surfelv2> & surfelsv2 = da.getSurfels();
-        visializeSurfelsv2(da.getSurfels());
+        handleFactorGraphAfterGPU(da.getSurfels());
+        // visializeSurfelsv2(da.getSurfels());
         ros::Duration(1.0).sleep();
         srrg2_core::Chrono::printReport(_timings);
         exit(0);
@@ -218,7 +228,7 @@ namespace structure_refinement {
     uint8_t markerColor = 0;
     long leafCnt = 0;
     int surfelCnt = 0;
-    int decimation = 20;
+    int decimation = 10;
 
     //  Get all the surfels possible
     for (auto surfel : surfelsv2) {
@@ -230,7 +240,7 @@ namespace structure_refinement {
       if (++markerColor > 14)
         markerColor = 0;
 
-      if(surfelCnt > 50 * 20)
+      if(surfelCnt > 500 * decimation)
         break;
       // Get the surfels
       for (auto& leaf : surfel.leafs_) {
@@ -722,6 +732,8 @@ namespace structure_refinement {
       using TreeNodeType = TreeNode3D<ContainerType>;
       using TreeNodeTypePtr = TreeNodeType*;
 
+      static int pointCloudId = -1;
+      pointCloudId++;
       // Create kdTree from the point cloud
       std::shared_ptr<TreeNodeType> kdTree(new TreeNodeType(cloud.begin(),
                                               cloud.end(),
@@ -730,7 +742,8 @@ namespace structure_refinement {
                                               0,
                                               2,
                                               nullptr,
-                                              nullptr));
+                                              nullptr,
+                                              pointCloudId));
 
       // Transform kdTree according to the BA pose
       // Eigen::Matrix3d rot = Eigen::Matrix3d::Identity();
@@ -1110,6 +1123,48 @@ namespace structure_refinement {
     // }
   }
 
+  void PointCloudProc::handleFactorGraphAfterGPU(std::vector<Surfelv2>& surfelsv2) {
+    // Create graph variable
+    srrg2_solver::FactorGraphPtr graph(new srrg2_solver::FactorGraph);
+    {
+      srrg2_core::Chrono chGP2("Adding poses to graph", &_timings, false);
+      addPosesToGraphBA(graph, poses_);
+    }
+
+    publishTFFromGraph(graph);
+    publishPointClouds();
+    publishTFFromGraph(graph);
+
+    // Add surfels
+    {
+      srrg2_core::Chrono chGP2("Adding surfels to graph", &_timings, false);
+      addSurfelsToGraphAfterGPU(graph, surfelsv2);
+    }
+    visual_tools_->deleteAllMarkers();
+
+    publishSurfFromGraph(graph);
+
+    // Optimize the graph
+    {
+      srrg2_core::Chrono chGP2("Optimizing the graph", &_timings, false);
+      optimizeFactorGraph(graph);
+    }
+    // rawOptimizeSurfels(surfels_);
+
+    // Update for next iteration
+    // updatePosesInGraph(graph);
+    ros::Duration(10.0).sleep();
+
+    // Visualize point clouds
+    publishTFFromGraph(graph);
+    publishPointClouds();
+    publishTFFromGraph(graph);
+
+    // Visualize surfels
+    visual_tools_->deleteAllMarkers();
+    publishSurfFromGraph(graph);
+  }
+
 void PointCloudProc::updatePosesInGraph(srrg2_solver::FactorGraphPtr& graph) {
   posesInGraph_.clear();
   for (uint i = 0; i < poses_.size(); i++) {
@@ -1308,6 +1363,64 @@ void PointCloudProc::addSurfelsToGraphBA(srrg2_solver::FactorGraphPtr& graph){
     }
 }
 
+void PointCloudProc::addSurfelsToGraphAfterGPU(srrg2_solver::FactorGraphPtr& graph, std::vector<Surfelv2>& surfelsv2){
+
+    // Set lastID to the number of poses
+    int64_t lastGraphId = poses_.size() - 1;
+
+    // Iterate through all surfels
+    for (const Surfelv2 & surfel : surfelsv2) {
+
+      // Set containing ids of odom poses
+      // Create multiple subsurfel variables for each odomPoses_
+      auto surfelVar = std::make_shared<srrg2_solver::VariableSurfelAD1D>();
+      surfelVar->setGraphId(++lastGraphId);
+
+      // Set initial estimate
+      // ToDo: Average all the observed surfels
+      Eigen::Isometry3d surfelPose = Eigen::Isometry3d::Identity();
+      Eigen::Isometry3f rotationY = Eigen::Isometry3f::Identity();
+      rotationY.linear() << 0, 0, 1, 0, 1, 0, -1, 0, 0;
+      surfelPose.translation() = surfel.leafs_.at(0)->mean_;
+      surfelPose.linear() = matrixBetween2Vectors(Eigen::Vector3d(0, 0, 1), surfel.leafs_.at(0)->eigenvectors_.col(0));
+      surfelVar->setEstimate(surfelPose.cast<float>());
+
+      // std::cout << "SurfelPose before optim: " << std::endl << surfelVar->estimate().matrix() << std::endl;
+      // surfelVar->setStatus(srrg2_solver::VariableBase::Status::Fixed);
+
+      graph->addVariable(surfelVar);
+
+      // Iterate through all poses from which given surfel was registered
+      for (uint i = 0; i < surfel.leafs_.size(); i++) {
+
+        // Create factor between pose and the surfel
+        // Eigen::Isometry3d surfelOdomPose = surfel->odomPoses_.at(i);
+        std::shared_ptr<srrg2_solver::SE3PoseSurfelQuaternionErrorFactorAD1D> poseSurfelFactor = std::make_shared<srrg2_solver::SE3PoseSurfelQuaternionErrorFactorAD1D>();
+        poseSurfelFactor->setVariableId(0, surfel.leafs_.at(i)->pointcloud_id_);
+        poseSurfelFactor->setVariableId(1, surfelVar->graphId());
+        // poses_ .at(odomPoseId) should be the same as surfel->odomPoses_(i)
+        // if (posesInGraph_.at(odomPoseId).matrix() != surfel->odomPoses_.at(i).matrix())
+          // std::cout << "Error: Poses stored in surfel and saved as odometetry don't match" << std::endl;
+
+        Eigen::Isometry3f odomPose = poses_.at(surfel.leafs_.at(i)->pointcloud_id_).cast<float>();
+        Eigen::Isometry3f surfelInMap = Eigen::Isometry3f::Identity();
+        surfelInMap.translation() = surfel.leafs_.at(i)->mean_.cast<float>();
+        surfelInMap.linear() = matrixBetween2Vectors(Eigen::Vector3d(0, 0, 1), surfel.leafs_.at(0)->eigenvectors_.col(0)).cast<float>();
+
+        poseSurfelFactor->setMeasurement(odomPose.inverse() * surfelInMap);
+
+        // Set information matrix
+        Eigen::Matrix<float, 1, 1> infMat = Eigen::Matrix<float, 1, 1>::Identity();
+        infMat *= 1;
+        poseSurfelFactor->setInformationMatrix(infMat);
+        // poseSurfelFactor->setInformationMatrix()
+
+        // Add factor to the graph
+        graph->addFactor(poseSurfelFactor);
+      }
+    }
+}
+
 void PointCloudProc::addPosesToGraphBA(srrg2_solver::FactorGraphPtr& graph, std::vector<Eigen::Isometry3d>& poseVect) {
 
   // Take all poses
@@ -1453,7 +1566,7 @@ void PointCloudProc::rawOptimizeSurfels(std::vector<std::shared_ptr<Surfel>> & s
     // Remove default termination criteria
     solver.param_termination_criteria.setValue(nullptr);
     // Set max number of iterations
-    solver.param_max_iterations.pushBack(10);
+    solver.param_max_iterations.pushBack(1);
     // Change iteration algorithm to LM
     std::shared_ptr<srrg2_solver::IterationAlgorithmLM> lm(new srrg2_solver::IterationAlgorithmLM);
     lm->param_user_lambda_init.setValue(1e-7);
@@ -1662,10 +1775,10 @@ void PointCloudProc::rawOptimizeSurfels(std::vector<std::shared_ptr<Surfel>> & s
       tfStamped.transform.rotation.w = quat.w();
       // transformBroadcaster_.sendTransform(tfStamped);
       static int markerColor = 0;
-      float radius = surfels_.at(cnt)->getLargestRadius();
-      // float radius = 0.2;
+      // float radius = surfels_.at(cnt)->getLargestRadius();
+      float radius = 0.2;
       float thickness = 0.05;
-      visual_tools_->publishCylinder(varSurf->estimate().cast<double>(), static_cast<rviz_visual_tools::colors>(markerColor++ % 11), thickness, radius);
+      visual_tools_->publishCylinder(varSurf->estimate().cast<double>(), static_cast<rviz_visual_tools::colors>(/* markerColor++ % 11 */ 7), thickness, radius);
       cnt++;
     }
     visual_tools_->trigger();
