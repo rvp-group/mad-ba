@@ -76,22 +76,18 @@ namespace structure_refinement {
       if (++msgCnt < 2 * cloudsToSkip) {
         return true;
       } else if (msgCnt > 2 * (cloudsToSkip + cloudsToProcess) - 1) {
-        // handleFactorGraphBA();
-        // publishPointClouds();
-        DataAssociation da;
-        // std::vector<std::shared_ptr<float>> tmp;
+        DataAssociation dataAssociation;
         {
           // srrg2_core::Chrono chGP("prepareData GPU", &_timings, false);
-          // da.prepareData(kdTrees_, kdTreeLeafes_);
+          // dataAssociation.prepareData(kdTrees_, kdTreeLeafes_);
         }
 
         {
           srrg2_core::Chrono chGP2("prepareData CPU", &_timings, false);
-          da.prepareDataCPU(kdTrees_, kdTreeLeafes_);
+          dataAssociation.prepareDataCPU(kdTrees_, kdTreeLeafes_);
         }
-        // std::vector<Surfelv2> & surfelsv2 = da.getSurfels();
-        handleFactorGraphAfterGPU(da.getSurfels());
-        // visializeSurfelsv2(da.getSurfels());
+        handleFactorGraphAfterGPU(dataAssociation.getSurfels());
+        visualizeCorrespondingSurfelsV2WithPoses(dataAssociation.getSurfels());
         ros::Duration(1.0).sleep();
         srrg2_core::Chrono::printReport(_timings);
         exit(0);
@@ -291,6 +287,30 @@ namespace structure_refinement {
           }
           poseArrayPub_.publish(poseArray);
       }
+  }
+
+  void PointCloudProc::visualizeCorrespondingSurfelsV2WithPoses(std::vector<Surfelv2>& surfelsv2) {
+
+    unsigned int maxLeafs = 0;
+    unsigned int maxLeafsId = 0;
+    for (unsigned int i = 0; i < surfelsv2.size(); i++) {
+      if (surfelsv2.at(i).leafs_.size() > maxLeafs) {
+        maxLeafs = surfelsv2.at(i).leafs_.size();
+        maxLeafsId = i;
+      }
+    }
+
+    // for (unsigned int i = 0; i < surfelsv2.size(); i += decimation) {
+      static int markerColor = 9;
+      for (auto const& leaf : surfelsv2.at(maxLeafsId).leafs_) {
+        static int visCnt = 0;
+          visualizeSurfel(leaf, markerColor);
+          Eigen::Isometry3d trans = Eigen::Isometry3d::Identity();
+          trans = poses_.at(leaf->pointcloud_id_);
+          visual_tools_->publishLine(trans.translation(), leaf->mean_, static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::LARGE);
+          visual_tools_->trigger();
+      }
+    // }
   }
 
   void PointCloudProc::visualizeCorrespondingSurfelsWithPoses() {
