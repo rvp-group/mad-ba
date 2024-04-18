@@ -36,6 +36,8 @@ namespace structure_refinement {
       // ROS publishers
       pointCloudPub_ = nh_.advertise<sensor_msgs::PointCloud2>("raw_point_cloud", 100);
       synthPointCloudPub_ = nh_.advertise<sensor_msgs::PointCloud2>("synth_point_cloud", 100);
+      surfelPointCloudPub_ = nh_.advertise<sensor_msgs::PointCloud2>("surfel_point_cloud", 100);
+
       odomPub_ = nh_.advertise<nav_msgs::Odometry>("ba_estimate", 100);
       poseArrayPub_ = nh_.advertise<geometry_msgs::PoseArray>("surfel_pose_array", 100);
       beforeOptimPoseArrayPub_ = nh_.advertise<geometry_msgs::PoseArray>("before_optim_pose_array", 100);
@@ -70,24 +72,31 @@ namespace structure_refinement {
 
       // Skip first n messages and process only m first clouds
       int cloudsToSkip = 100;
-      int decimateRealData = 15;
-      int cloudsToProcess = 10 * decimateRealData;
+      int decimateRealData = 10;
+      int cloudsToProcess = 30 * decimateRealData;
       static int msgCnt = -1;
       if (++msgCnt < 2 * cloudsToSkip) {
         return true;
       } else if (msgCnt > 2 * (cloudsToSkip + cloudsToProcess) - 1) {
-        DataAssociation dataAssociation;
-        {
-          // srrg2_core::Chrono chGP("prepareData GPU", &_timings, false);
-          // dataAssociation.prepareData(kdTrees_, kdTreeLeafes_);
+        for (int i = 0; i < 3; i++) {
+          DataAssociation dataAssociation;
+          {
+            // srrg2_core::Chrono chGP("prepareData GPU", &_timings, false);
+            // dataAssociation.prepareData(kdTrees_, kdTreeLeafes_);
+          }
+
+          {
+            srrg2_core::Chrono chGP2("prepareData CPU", &_timings, false);
+            dataAssociation.prepareDataCPU(kdTrees_, kdTreeLeafes_);
+          }
+          handleFactorGraphAfterGPU(dataAssociation.getSurfels());
+          // visualizeCorrespondingSurfelsV2WithPoses(dataAssociation.getSurfels());
+
+          // Reset the leafs and surfels
+          resetLeafsSurfelId();
+          dataAssociation.resetSurfels();
         }
 
-        {
-          srrg2_core::Chrono chGP2("prepareData CPU", &_timings, false);
-          dataAssociation.prepareDataCPU(kdTrees_, kdTreeLeafes_);
-        }
-        handleFactorGraphAfterGPU(dataAssociation.getSurfels());
-        visualizeCorrespondingSurfelsV2WithPoses(dataAssociation.getSurfels());
         ros::Duration(1.0).sleep();
         srrg2_core::Chrono::printReport(_timings);
         exit(0);
@@ -1163,26 +1172,51 @@ namespace structure_refinement {
     visual_tools_->deleteAllMarkers();
 
     publishSurfFromGraph(graph);
+    publishPointSurfv2(surfelsv2);
 
     // Optimize the graph
     {
       srrg2_core::Chrono chGP2("Optimizing the graph", &_timings, false);
       optimizeFactorGraph(graph);
     }
+
+
+    updateSurfelsMeanFromGraph(graph, surfelsv2);
+    // Update poses and kd-tree leafs
+    updatePosesAndLeafsFromGraph(graph);
+
     // rawOptimizeSurfels(surfels_);
 
     // Update for next iteration
     // updatePosesInGraph(graph);
-    ros::Duration(10.0).sleep();
+    // ros::Duration(10.0).sleep();
 
     // Visualize point clouds
     publishTFFromGraph(graph);
     publishPointClouds();
     publishTFFromGraph(graph);
 
+    publishPointSurfv2(surfelsv2);
+
     // Visualize surfels
     visual_tools_->deleteAllMarkers();
-    publishSurfFromGraph(graph);
+    // publishSurfFromGraph(graph);
+    
+  }
+
+  void PointCloudProc::updatePosesAndLeafsFromGraph(srrg2_solver::FactorGraphPtr& graph) {
+    posesInGraph_.clear();
+    for (uint i = 0; i < poses_.size(); i++) {
+      srrg2_solver::VariableSE3QuaternionRight* varPose = dynamic_cast<srrg2_solver::VariableSE3QuaternionRight*>(graph->variable(i));
+      if (!varPose) {
+        std::cout << "Error in updatePosesInGraph" << std::endl;
+        exit(0);
+      }
+      Eigen::Isometry3d poseInc = varPose->estimate().cast<double>() * poses_.at(i).inverse();
+      if(i < kdTrees_.size())
+        kdTrees_.at(i)->applyTransform(poseInc.linear(), poseInc.translation());
+      poses_.at(i) = varPose->estimate().cast<double>();
+    }
   }
 
 void PointCloudProc::updatePosesInGraph(srrg2_solver::FactorGraphPtr& graph) {
@@ -1451,7 +1485,7 @@ void PointCloudProc::addPosesToGraphBA(srrg2_solver::FactorGraphPtr& graph, std:
     poseVar->setGraphId(idx);
 
     // Set first variable as Fixed
-    // if (idx == 0)
+    if (idx == 0)
       poseVar->setStatus(srrg2_solver::VariableBase::Status::Fixed);
 
     // Set estimate with noise
@@ -1512,7 +1546,7 @@ void PointCloudProc::updateLeafsPosition(srrg2_solver::FactorGraphPtr& graph, st
       continue;
     }
     // std::cout << "Id of variable   "  << varPose->graphId() << std::endl;
-    Eigen::Isometry3d poseInc = varPose->estimate().cast<double>() * lastPosesInGraph.at(i).inverse() ;
+    Eigen::Isometry3d poseInc = varPose->estimate().cast<double>() * poses_.at(i).inverse() ;
     // poseInc.matrix() *= 0.1;
     // std::cout << "Change in pose #" << i << std::endl << poseInc.matrix() << std::endl;
     // It's enough to transform only kdTree_, as kdTreeLeafes_ contains pointers to them
@@ -1546,6 +1580,14 @@ void PointCloudProc::rawOptimizeSynthSurfels(const std::vector<SynthSurfel> & su
     surfelsOut.push_back(newSurf);
   }
 
+}
+
+void PointCloudProc::resetLeafsSurfelId(){
+  for (auto & leafs: kdTreeLeafes_){
+    for (auto & l: leafs){
+      l->resetSurfelId();
+    }
+  }
 }
 
 void PointCloudProc::rawOptimizeSurfels(std::vector<std::shared_ptr<Surfel>> & surfelsIn){ //}, std::vector<SynthSurfel> & surfelsOut){
@@ -1804,6 +1846,54 @@ void PointCloudProc::rawOptimizeSurfels(std::vector<std::shared_ptr<Surfel>> & s
     visual_tools_->trigger();
   }
 
+  void PointCloudProc::updateSurfelsMeanFromGraph(const srrg2_solver::FactorGraphPtr & graph, std::vector<Surfelv2>& surfelsv2){
+    int surfelIdx = 0;
+    for (auto varIt : graph->variables()) {
+      srrg2_solver::VariableSurfelAD1D* varSurf = dynamic_cast<srrg2_solver::VariableSurfelAD1D*>(varIt.second);
+      if (!varSurf) {
+        continue;
+      }
+      surfelsv2.at(surfelIdx++).setMeanEst(varSurf->estimate().translation());
+    }
+    if (surfelIdx != surfelsv2.size()) {
+      std::cout << "Error in updateSurfelsMeanFromGraph" << std::endl;
+      exit(0);
+    }
+  }
+
+  void PointCloudProc::publishPointSurfv2(std::vector<Surfelv2>& surfelsv2) {
+     
+    pcl::PointSurfel ps;
+    pcl::PointCloud<pcl::PointSurfel> psCloud;
+    for (const Surfelv2 & surfel: surfelsv2){
+      Eigen::Vector3f t = surfel.getMeanEst();
+      Eigen::Vector3f n = surfel.getNormal();
+      float radius = surfel.getMaxRadius();
+      if (radius < 0.075)
+        radius = 0.075;
+      uint8_t r = 0, g = 255, b = 0, a = 255;
+      pcl::PointSurfel ps;
+      ps.x = t.x();
+      ps.y = t.y();
+      ps.z = t.z();
+      ps.normal_x = n.x();
+      ps.normal_y = n.y();
+      ps.normal_z = n.z();
+      ps.radius = radius;
+      psCloud.push_back(ps);
+    }
+    // Convert to ROS data type
+    
+    sensor_msgs::PointCloud2 rosCloud;
+    pcl::toROSMsg(psCloud, rosCloud);
+
+    // Set the header
+    rosCloud.header.stamp = ros::Time::now();
+    rosCloud.header.frame_id = "map";
+
+    surfelPointCloudPub_.publish(rosCloud);
+  }
+
   void PointCloudProc::publishPointClouds() {
     for (sensor_msgs::PointCloud2& pc : rosPointClouds_) {
       pc.header.stamp = ros::Time::now();
@@ -1815,8 +1905,8 @@ void PointCloudProc::rawOptimizeSurfels(std::vector<std::shared_ptr<Surfel>> & s
     // Define the noise added to the poses
     static std::random_device rd;                                  // obtain a random number from hardware
     static std::mt19937 gen(rd());                                 // seed the generator
-    static std::normal_distribution<double> noiseTrans(0.0, 0.2);  // define the noise for translation
-    static std::normal_distribution<double> noiseRot(0.0, 2.0 * M_PI / 180.0);   // define the noise for rotation
+    static std::normal_distribution<double> noiseTrans(0.0, 0.3);  // define the noise for translation
+    static std::normal_distribution<double> noiseRot(0.0, 3.0 * M_PI / 180.0);   // define the noise for rotation
 
     // Take all poses
     Eigen::Isometry3d perturbation = Eigen::Isometry3d::Identity();

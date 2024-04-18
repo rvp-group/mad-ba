@@ -43,6 +43,11 @@
 #include "srrg_solver/variables_and_factors/types_krzystof/variable_surfel.h"
 #include "srrg_solver/variables_and_factors/types_krzystof/se3_pose_surfel_factor_ad.h"
 #include "data_association.cuh"
+// #include <pcl/impl/point_types.hpp>
+#include <sensor_msgs/PointCloud2.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
 
 
 namespace structure_refinement {
@@ -75,6 +80,7 @@ namespace structure_refinement {
     void saveSurfelsTofile();
     void filterSurfels();
     void visializeSurfelsv2(std::vector<Surfelv2> &surfelsv2);
+    void publishPointSurfv2(std::vector<Surfelv2> &surfelsv2);
 
     int findLeafId(unsigned int, TreeNodeTypePtr);  // Find the id of a leaf in a given kdTree
     void generateSyntheticPointCloud(sensor_msgs::PointCloud2 &);
@@ -98,9 +104,12 @@ namespace structure_refinement {
 
     void updateLeafsPosition(srrg2_solver::FactorGraphPtr&, std::vector<Eigen::Isometry3d>&);
     void updatePosesInGraph(srrg2_solver::FactorGraphPtr &);
+    void updatePosesAndLeafsFromGraph(srrg2_solver::FactorGraphPtr &);
+    void updateSurfelsMeanFromGraph(const srrg2_solver::FactorGraphPtr &graph, std::vector<Surfelv2> &surfelsv2);
     void reloadRviz();
-    void rawOptimizeSynthSurfels(const std::vector<SynthSurfel> & surfelsIn, std::vector<SynthSurfel> & surfelsOut);
-    void rawOptimizeSurfels(std::vector<std::shared_ptr<Surfel>> & surfelsIn);
+    void rawOptimizeSynthSurfels(const std::vector<SynthSurfel> &surfelsIn, std::vector<SynthSurfel> &surfelsOut);
+    void rawOptimizeSurfels(std::vector<std::shared_ptr<Surfel>> &surfelsIn);
+    void resetLeafsSurfelId();
 
    protected:
     using PointUnprojectorBase = srrg2_core::PointUnprojectorBase_<srrg2_core::PointNormalIntensity3fVectorCloud>;
@@ -122,14 +131,15 @@ namespace structure_refinement {
     std::vector<Eigen::Isometry3d> posesInGraph_;
     std::vector<Eigen::Isometry3d> posesWithoutNoise_;
 
-    std::vector<std::shared_ptr<Surfel>> surfels_; // Vector of all the surfels. Indexes do NOT correspond to anything else
-    std::vector<sensor_msgs::PointCloud2> rosPointClouds_; // Vector of point clouds for vizualization, as Rviz sometimes doesn't display them
+    std::vector<std::shared_ptr<Surfel>> surfels_;          // Vector of all the surfels. Indexes do NOT correspond to anything else
+    std::vector<sensor_msgs::PointCloud2> rosPointClouds_;  // Vector of point clouds for vizualization, as Rviz sometimes doesn't display them
     // ROS
     ros::NodeHandle nh_;
-    ros::Publisher pointCloudPub_; // Raw point clouds publisher
-    ros::Publisher synthPointCloudPub_;  // Synthetic point clouds publisher
+    ros::Publisher pointCloudPub_;        // Raw point clouds publisher
+    ros::Publisher synthPointCloudPub_;   // Synthetic point clouds publisher
+    ros::Publisher surfelPointCloudPub_;  // Synthetic point clouds publisher
 
-    ros::Publisher odomPub_; // Odometry from .bag file publisher
+    ros::Publisher odomPub_;  // Odometry from .bag file publisher
     ros::Publisher poseArrayPub_;
     ros::Publisher afterOptimPoseArrayPub_;
     ros::Publisher beforeOptimPoseArrayPub_;
@@ -141,8 +151,7 @@ namespace structure_refinement {
     rviz_visual_tools::RvizVisualToolsPtr visual_tools_;
     ros::ServiceClient clientRviz_;
     srrg2_core::Chrono::ChronoMap _timings;
-
-  };
+    };
 
   using PointCloudProcPtr = std::shared_ptr<PointCloudProc>;
 

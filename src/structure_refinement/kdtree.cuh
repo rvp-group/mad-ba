@@ -25,7 +25,7 @@ public:
 };
 
 template <typename ContainerType_>
-class TreeNode3D : public Managed {
+class TreeNode3D {
 public:
   using ContainerType    = ContainerType_;
   using ContainerTypePtr = std::shared_ptr<ContainerType>;
@@ -102,6 +102,10 @@ public:
       std::cout << "trying to change existing id " << std::endl;
       exit(0);
     }
+  }
+
+  inline void resetSurfelId() {
+      surfel_id_ = -1;
   }
 
   int num_points_;

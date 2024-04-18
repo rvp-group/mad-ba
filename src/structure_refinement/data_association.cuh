@@ -26,9 +26,22 @@ class Surfelv2 {
   Surfelv2() : id_(counter_++){};
   ~Surfelv2() {};
 
+  void setMeanEst(const Eigen::Vector3f & mean){
+    meanEst_ = mean;
+  }
+
+  Eigen::Vector3f getMeanEst() const { return meanEst_; }
+  Eigen::Vector3f getNormal() const { return leafs_[0]->eigenvectors_.col(0).cast<float>(); }
+
+  static void resetTheSurfelsCounter(){
+    counter_ = 0;
+  }
+
   void addLeaf(TreeNodeTypePtr &leaf) {
     leaf->setSurfelId(this->id_);
     leafs_.push_back(leaf);
+    if (leafs_.size() == 1)
+      meanEst_ = leaf->mean_.cast<float>();
   }
 
   bool hasLeafFromPointCloud(int pointCloudIdx) {
@@ -39,9 +52,20 @@ class Surfelv2 {
     return false;
   }
 
+  float getMaxRadius() const {
+    float maxRadius = 0;
+    for (TreeNodeTypePtr leaf : leafs_) {
+      float r = sqrt(leaf->bbox_[1] * leaf->bbox_[1] + leaf->bbox_[2] * leaf->bbox_[2]) / 2.0;
+      if (r > maxRadius)
+        maxRadius = r;
+    }
+    return maxRadius;
+  }
+
 //  protected:
   std::vector<TreeNodeTypePtr> leafs_;
   const uint64_t id_;
+  Eigen::Vector3f meanEst_;
 };
 
 class DataAssociation {
@@ -54,8 +78,11 @@ public:
   __host__ void prepareDataExample();
   __host__ void processTheSurfelMatches(std::vector<SurfelMatches> &);
   __host__ std::vector<Surfelv2> & getSurfels() {return surfels_;}
+  __host__ void resetSurfels() {
+    surfels_.clear();
+    Surfelv2::resetTheSurfelsCounter(); // Surfel's id is its position in a surfels_ vector, so it must be reset
+  }
   std::vector<Surfelv2> surfels_;
-
 };
 
 }  // namespace structure_refinement

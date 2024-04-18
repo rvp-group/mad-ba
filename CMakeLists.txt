@@ -46,7 +46,7 @@ message(STATUS "OpenCV_INCLUDE_DIRS: ${OpenCV_INCLUDE_DIRS}")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSRRG_MERGE_DESCRIPTORS -DSRRG_HBST_HAS_OPENCV")
 
-# find_package(PCL REQUIRED)
+find_package(PCL REQUIRED)
 # if(PCL_FOUND)
 # message("PCL FOUND: building apps to dump point clouds in pcd format")
 # endif()
