@@ -7,7 +7,6 @@ Panels:
         - /BA Poses1/Shape1
         - /Normals1/Namespaces1
         - /TF1/Tree1
-        - /SurfelCloud1
       Splitter Ratio: 0.41033434867858887
     Tree Height: 556
   - Class: rviz/Selection
@@ -67,7 +66,7 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: Intensity
       Decay Time: 10
-      Enabled: false
+      Enabled: true
       Invert Rainbow: true
       Max Color: 255; 255; 255
       Max Intensity: 30
@@ -78,13 +77,13 @@ Visualization Manager:
       Queue Size: 30
       Selectable: true
       Size (Pixels): 1
-      Size (m): 0.10000000149011612
-      Style: Points
+      Size (m): 0.009999999776482582
+      Style: Flat Squares
       Topic: /structure_refinement/raw_point_cloud
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: false
+      Value: true
     - Angle Tolerance: 0.10000000149011612
       Class: rviz/Odometry
       Covariance:
@@ -141,113 +140,13 @@ Visualization Manager:
           Value: true
         ba_estimate_10:
           Value: true
-        ba_estimate_100:
-          Value: true
-        ba_estimate_101:
-          Value: true
-        ba_estimate_102:
-          Value: true
-        ba_estimate_103:
-          Value: true
-        ba_estimate_104:
-          Value: true
-        ba_estimate_105:
-          Value: true
-        ba_estimate_106:
-          Value: true
-        ba_estimate_107:
-          Value: true
-        ba_estimate_108:
-          Value: true
-        ba_estimate_109:
-          Value: true
         ba_estimate_11:
-          Value: true
-        ba_estimate_110:
-          Value: true
-        ba_estimate_111:
-          Value: true
-        ba_estimate_112:
-          Value: true
-        ba_estimate_113:
-          Value: true
-        ba_estimate_114:
-          Value: true
-        ba_estimate_115:
-          Value: true
-        ba_estimate_116:
-          Value: true
-        ba_estimate_117:
-          Value: true
-        ba_estimate_118:
-          Value: true
-        ba_estimate_119:
           Value: true
         ba_estimate_12:
           Value: true
-        ba_estimate_120:
-          Value: true
-        ba_estimate_121:
-          Value: true
-        ba_estimate_122:
-          Value: true
-        ba_estimate_123:
-          Value: true
-        ba_estimate_124:
-          Value: true
-        ba_estimate_125:
-          Value: true
-        ba_estimate_126:
-          Value: true
-        ba_estimate_127:
-          Value: true
-        ba_estimate_128:
-          Value: true
-        ba_estimate_129:
-          Value: true
         ba_estimate_13:
           Value: true
-        ba_estimate_130:
-          Value: true
-        ba_estimate_131:
-          Value: true
-        ba_estimate_132:
-          Value: true
-        ba_estimate_133:
-          Value: true
-        ba_estimate_134:
-          Value: true
-        ba_estimate_135:
-          Value: true
-        ba_estimate_136:
-          Value: true
-        ba_estimate_137:
-          Value: true
-        ba_estimate_138:
-          Value: true
-        ba_estimate_139:
-          Value: true
         ba_estimate_14:
-          Value: true
-        ba_estimate_140:
-          Value: true
-        ba_estimate_141:
-          Value: true
-        ba_estimate_142:
-          Value: true
-        ba_estimate_143:
-          Value: true
-        ba_estimate_144:
-          Value: true
-        ba_estimate_145:
-          Value: true
-        ba_estimate_146:
-          Value: true
-        ba_estimate_147:
-          Value: true
-        ba_estimate_148:
-          Value: true
-        ba_estimate_149:
           Value: true
         ba_estimate_15:
           Value: true
@@ -283,157 +182,17 @@ Visualization Manager:
           Value: true
         ba_estimate_3:
           Value: true
-        ba_estimate_30:
-          Value: true
-        ba_estimate_31:
-          Value: true
-        ba_estimate_32:
-          Value: true
-        ba_estimate_33:
-          Value: true
-        ba_estimate_34:
-          Value: true
-        ba_estimate_35:
-          Value: true
-        ba_estimate_36:
-          Value: true
-        ba_estimate_37:
-          Value: true
-        ba_estimate_38:
-          Value: true
-        ba_estimate_39:
-          Value: true
         ba_estimate_4:
-          Value: true
-        ba_estimate_40:
-          Value: true
-        ba_estimate_41:
-          Value: true
-        ba_estimate_42:
-          Value: true
-        ba_estimate_43:
-          Value: true
-        ba_estimate_44:
-          Value: true
-        ba_estimate_45:
-          Value: true
-        ba_estimate_46:
-          Value: true
-        ba_estimate_47:
-          Value: true
-        ba_estimate_48:
-          Value: true
-        ba_estimate_49:
           Value: true
         ba_estimate_5:
           Value: true
-        ba_estimate_50:
-          Value: true
-        ba_estimate_51:
-          Value: true
-        ba_estimate_52:
-          Value: true
-        ba_estimate_53:
-          Value: true
-        ba_estimate_54:
-          Value: true
-        ba_estimate_55:
-          Value: true
-        ba_estimate_56:
-          Value: true
-        ba_estimate_57:
-          Value: true
-        ba_estimate_58:
-          Value: true
-        ba_estimate_59:
-          Value: true
         ba_estimate_6:
-          Value: true
-        ba_estimate_60:
-          Value: true
-        ba_estimate_61:
-          Value: true
-        ba_estimate_62:
-          Value: true
-        ba_estimate_63:
-          Value: true
-        ba_estimate_64:
-          Value: true
-        ba_estimate_65:
-          Value: true
-        ba_estimate_66:
-          Value: true
-        ba_estimate_67:
-          Value: true
-        ba_estimate_68:
-          Value: true
-        ba_estimate_69:
           Value: true
         ba_estimate_7:
           Value: true
-        ba_estimate_70:
-          Value: true
-        ba_estimate_71:
-          Value: true
-        ba_estimate_72:
-          Value: true
-        ba_estimate_73:
-          Value: true
-        ba_estimate_74:
-          Value: true
-        ba_estimate_75:
-          Value: true
-        ba_estimate_76:
-          Value: true
-        ba_estimate_77:
-          Value: true
-        ba_estimate_78:
-          Value: true
-        ba_estimate_79:
-          Value: true
         ba_estimate_8:
           Value: true
-        ba_estimate_80:
-          Value: true
-        ba_estimate_81:
-          Value: true
-        ba_estimate_82:
-          Value: true
-        ba_estimate_83:
-          Value: true
-        ba_estimate_84:
-          Value: true
-        ba_estimate_85:
-          Value: true
-        ba_estimate_86:
-          Value: true
-        ba_estimate_87:
-          Value: true
-        ba_estimate_88:
-          Value: true
-        ba_estimate_89:
-          Value: true
         ba_estimate_9:
-          Value: true
-        ba_estimate_90:
-          Value: true
-        ba_estimate_91:
-          Value: true
-        ba_estimate_92:
-          Value: true
-        ba_estimate_93:
-          Value: true
-        ba_estimate_94:
-          Value: true
-        ba_estimate_95:
-          Value: true
-        ba_estimate_96:
-          Value: true
-        ba_estimate_97:
-          Value: true
-        ba_estimate_98:
-          Value: true
-        ba_estimate_99:
           Value: true
         map:
           Value: true
@@ -446,246 +205,6 @@ Visualization Manager:
       Show Axes: true
       Show Names: false
       Tree:
-        ba_estimate_100:
-          {}
-        ba_estimate_101:
-          {}
-        ba_estimate_102:
-          {}
-        ba_estimate_103:
-          {}
-        ba_estimate_104:
-          {}
-        ba_estimate_105:
-          {}
-        ba_estimate_106:
-          {}
-        ba_estimate_107:
-          {}
-        ba_estimate_108:
-          {}
-        ba_estimate_109:
-          {}
-        ba_estimate_110:
-          {}
-        ba_estimate_111:
-          {}
-        ba_estimate_112:
-          {}
-        ba_estimate_113:
-          {}
-        ba_estimate_114:
-          {}
-        ba_estimate_115:
-          {}
-        ba_estimate_116:
-          {}
-        ba_estimate_117:
-          {}
-        ba_estimate_118:
-          {}
-        ba_estimate_119:
-          {}
-        ba_estimate_120:
-          {}
-        ba_estimate_121:
-          {}
-        ba_estimate_122:
-          {}
-        ba_estimate_123:
-          {}
-        ba_estimate_124:
-          {}
-        ba_estimate_125:
-          {}
-        ba_estimate_126:
-          {}
-        ba_estimate_127:
-          {}
-        ba_estimate_128:
-          {}
-        ba_estimate_129:
-          {}
-        ba_estimate_130:
-          {}
-        ba_estimate_131:
-          {}
-        ba_estimate_132:
-          {}
-        ba_estimate_133:
-          {}
-        ba_estimate_134:
-          {}
-        ba_estimate_135:
-          {}
-        ba_estimate_136:
-          {}
-        ba_estimate_137:
-          {}
-        ba_estimate_138:
-          {}
-        ba_estimate_139:
-          {}
-        ba_estimate_140:
-          {}
-        ba_estimate_141:
-          {}
-        ba_estimate_142:
-          {}
-        ba_estimate_143:
-          {}
-        ba_estimate_144:
-          {}
-        ba_estimate_145:
-          {}
-        ba_estimate_146:
-          {}
-        ba_estimate_147:
-          {}
-        ba_estimate_148:
-          {}
-        ba_estimate_149:
-          {}
-        ba_estimate_30:
-          {}
-        ba_estimate_31:
-          {}
-        ba_estimate_32:
-          {}
-        ba_estimate_33:
-          {}
-        ba_estimate_34:
-          {}
-        ba_estimate_35:
-          {}
-        ba_estimate_36:
-          {}
-        ba_estimate_37:
-          {}
-        ba_estimate_38:
-          {}
-        ba_estimate_39:
-          {}
-        ba_estimate_40:
-          {}
-        ba_estimate_41:
-          {}
-        ba_estimate_42:
-          {}
-        ba_estimate_43:
-          {}
-        ba_estimate_44:
-          {}
-        ba_estimate_45:
-          {}
-        ba_estimate_46:
-          {}
-        ba_estimate_47:
-          {}
-        ba_estimate_48:
-          {}
-        ba_estimate_49:
-          {}
-        ba_estimate_50:
-          {}
-        ba_estimate_51:
-          {}
-        ba_estimate_52:
-          {}
-        ba_estimate_53:
-          {}
-        ba_estimate_54:
-          {}
-        ba_estimate_55:
-          {}
-        ba_estimate_56:
-          {}
-        ba_estimate_57:
-          {}
-        ba_estimate_58:
-          {}
-        ba_estimate_59:
-          {}
-        ba_estimate_60:
-          {}
-        ba_estimate_61:
-          {}
-        ba_estimate_62:
-          {}
-        ba_estimate_63:
-          {}
-        ba_estimate_64:
-          {}
-        ba_estimate_65:
-          {}
-        ba_estimate_66:
-          {}
-        ba_estimate_67:
-          {}
-        ba_estimate_68:
-          {}
-        ba_estimate_69:
-          {}
-        ba_estimate_70:
-          {}
-        ba_estimate_71:
-          {}
-        ba_estimate_72:
-          {}
-        ba_estimate_73:
-          {}
-        ba_estimate_74:
-          {}
-        ba_estimate_75:
-          {}
-        ba_estimate_76:
-          {}
-        ba_estimate_77:
-          {}
-        ba_estimate_78:
-          {}
-        ba_estimate_79:
-          {}
-        ba_estimate_80:
-          {}
-        ba_estimate_81:
-          {}
-        ba_estimate_82:
-          {}
-        ba_estimate_83:
-          {}
-        ba_estimate_84:
-          {}
-        ba_estimate_85:
-          {}
-        ba_estimate_86:
-          {}
-        ba_estimate_87:
-          {}
-        ba_estimate_88:
-          {}
-        ba_estimate_89:
-          {}
-        ba_estimate_90:
-          {}
-        ba_estimate_91:
-          {}
-        ba_estimate_92:
-          {}
-        ba_estimate_93:
-          {}
-        ba_estimate_94:
-          {}
-        ba_estimate_95:
-          {}
-        ba_estimate_96:
-          {}
-        ba_estimate_97:
-          {}
-        ba_estimate_98:
-          {}
-        ba_estimate_99:
-          {}
         world:
           map:
             ba_estimate_0:
@@ -888,7 +407,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 32.34307098388672
+      Distance: 52.23855209350586
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -896,17 +415,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 27.923782348632812
-        Y: -4.886971950531006
-        Z: 7.547940254211426
+        X: 13.914013862609863
+        Y: 1.2550218105316162
+        Z: 12.225290298461914
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.10539849102497101
+      Pitch: 0.570398211479187
       Target Frame: <Fixed Frame>
-      Yaw: 3.3503921031951904
+      Yaw: 3.0903987884521484
     Saved:
       - Class: rviz/Orbit
         Distance: 23.76012420654297

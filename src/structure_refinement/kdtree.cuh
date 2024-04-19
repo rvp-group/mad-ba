@@ -9,20 +9,20 @@
 
 #include <atomic>
 
-class Managed {
-public:
-  void *operator new(size_t len) {
-    void *ptr;
-    cudaMallocManaged(&ptr, len);
-    cudaDeviceSynchronize();
-    return ptr;
-  }
+// class Managed {
+// public:
+//   void *operator new(size_t len) {
+//     void *ptr;
+//     cudaMallocManaged(&ptr, len);
+//     cudaDeviceSynchronize();
+//     return ptr;
+//   }
 
-  void operator delete(void *ptr) {
-    cudaDeviceSynchronize();
-    cudaFree(ptr);
-  }
-};
+//   void operator delete(void *ptr) {
+//     cudaDeviceSynchronize();
+//     cudaFree(ptr);
+//   }
+// };
 
 template <typename ContainerType_>
 class TreeNode3D {

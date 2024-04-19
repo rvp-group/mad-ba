@@ -21,7 +21,7 @@
 #include <cmath>
 #include <rviz/SendFilePath.h>
 #include <srrg_system_utils/chrono.h>
-#include "data_association.cuh"
+#include "data_association.h"
 
 
 namespace structure_refinement {
@@ -71,14 +71,15 @@ namespace structure_refinement {
       bool useSynthethicData = false;
 
       // Skip first n messages and process only m first clouds
-      int cloudsToSkip = 100;
-      int decimateRealData = 10;
-      int cloudsToProcess = 30 * decimateRealData;
+      int cloudsToSkip = 50;
+      int decimateRealData = 1;
+      int cloudsToProcess = 400 * decimateRealData;
       static int msgCnt = -1;
       if (++msgCnt < 2 * cloudsToSkip) {
         return true;
       } else if (msgCnt > 2 * (cloudsToSkip + cloudsToProcess) - 1) {
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 1; i++) {
+          
           DataAssociation dataAssociation;
           {
             // srrg2_core::Chrono chGP("prepareData GPU", &_timings, false);
@@ -89,9 +90,10 @@ namespace structure_refinement {
             srrg2_core::Chrono chGP2("prepareData CPU", &_timings, false);
             dataAssociation.prepareDataCPU(kdTrees_, kdTreeLeafes_);
           }
-          handleFactorGraphAfterGPU(dataAssociation.getSurfels());
+          // handleFactorGraphAfterGPU(dataAssociation.getSurfels());
+          // visual_tools_->deleteAllMarkers();
           // visualizeCorrespondingSurfelsV2WithPoses(dataAssociation.getSurfels());
-
+          
           // Reset the leafs and surfels
           resetLeafsSurfelId();
           dataAssociation.resetSurfels();
@@ -309,16 +311,29 @@ namespace structure_refinement {
       }
     }
 
+    unsigned int surfelsToVisualize = 10;
+
+    // Create vector containing sorted indices of surfels
+    std::vector<int> idxSorted(surfelsv2.size());
+    std::size_t n(0);
+    std::generate(std::begin(idxSorted), std::end(idxSorted), [&] { return n++; });
+    std::sort(std::begin(idxSorted), std::end(idxSorted),[&](int i1, int i2) { return surfelsv2[i1].leafs_.size() > surfelsv2[i2].leafs_.size(); });
+
+    std::cout << "maxleafsId:  " << maxLeafsId << "  first el: "  << idxSorted[0] << std::endl;
+
     // for (unsigned int i = 0; i < surfelsv2.size(); i += decimation) {
-      static int markerColor = 9;
-      for (auto const& leaf : surfelsv2.at(maxLeafsId).leafs_) {
+    static int markerColor = 9;
+    for (int i = 0; i < surfelsToVisualize; i++) {
+      markerColor = ++markerColor % 14;
+      for (auto const& leaf : surfelsv2.at(idxSorted[i]).leafs_) {
         static int visCnt = 0;
-          visualizeSurfel(leaf, markerColor);
-          Eigen::Isometry3d trans = Eigen::Isometry3d::Identity();
-          trans = poses_.at(leaf->pointcloud_id_);
-          visual_tools_->publishLine(trans.translation(), leaf->mean_, static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::LARGE);
-          visual_tools_->trigger();
+        visualizeSurfel(leaf, markerColor);
+        Eigen::Isometry3d trans = Eigen::Isometry3d::Identity();
+        trans = poses_.at(leaf->pointcloud_id_);
+        visual_tools_->publishLine(trans.translation(), leaf->mean_, static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::LARGE);
+        visual_tools_->trigger();
       }
+    }
     // }
   }
 
@@ -1169,9 +1184,9 @@ namespace structure_refinement {
       srrg2_core::Chrono chGP2("Adding surfels to graph", &_timings, false);
       addSurfelsToGraphAfterGPU(graph, surfelsv2);
     }
-    visual_tools_->deleteAllMarkers();
+    // visual_tools_->deleteAllMarkers();
 
-    publishSurfFromGraph(graph);
+    // publishSurfFromGraph(graph);
     publishPointSurfv2(surfelsv2);
 
     // Optimize the graph
@@ -1199,7 +1214,7 @@ namespace structure_refinement {
     publishPointSurfv2(surfelsv2);
 
     // Visualize surfels
-    visual_tools_->deleteAllMarkers();
+    // visual_tools_->deleteAllMarkers();
     // publishSurfFromGraph(graph);
     
   }
@@ -1905,8 +1920,8 @@ void PointCloudProc::rawOptimizeSurfels(std::vector<std::shared_ptr<Surfel>> & s
     // Define the noise added to the poses
     static std::random_device rd;                                  // obtain a random number from hardware
     static std::mt19937 gen(rd());                                 // seed the generator
-    static std::normal_distribution<double> noiseTrans(0.0, 0.3);  // define the noise for translation
-    static std::normal_distribution<double> noiseRot(0.0, 3.0 * M_PI / 180.0);   // define the noise for rotation
+    static std::normal_distribution<double> noiseTrans(0.0, 0.0);  // define the noise for translation
+    static std::normal_distribution<double> noiseRot(0.0, 0.0 * M_PI / 180.0);   // define the noise for rotation
 
     // Take all poses
     Eigen::Isometry3d perturbation = Eigen::Isometry3d::Identity();

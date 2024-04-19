@@ -18,11 +18,14 @@ find_package(catkin REQUIRED COMPONENTS
   rviz
 )
 
-set(SRRG_ENABLE_CUDA ON)
-
+set(SRRG_ENABLE_CUDA OFF)
 include(${srrg_cmake_modules_INCLUDE_DIRS}/CMakeCompileOptions.txt)
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
+find_package(OpenMP)
+if(OPENMP_FOUND)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+endif()
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
 message("CMAKE FLAGS SET TO ${CMAKE_CXX_FLAGS}")
 
 find_package(Eigen3 REQUIRED)
@@ -64,6 +67,7 @@ catkin_package(
     srrg2_solver
     rviz_visual_tools
   DEPENDS
+    # OpenMP
     # SRRG_QT
     # OpenCV
     # QGLViewer
@@ -77,7 +81,9 @@ include_directories(
   ${PCL_INCLUDE_DIRS}
   ${PROJECT_SOURCE_DIR}/src
   ${CUDA_INCLUDE_DIRS}
+  ${OpenMP_LIBS}
 )
+
 
 link_directories(${catkin_LIBRARY_DIRS})
 

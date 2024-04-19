@@ -26,6 +26,12 @@ class Surfelv2 {
   Surfelv2() : id_(counter_++){};
   ~Surfelv2() {};
 
+  // Surfelv2(Surfelv2 & s): id_(counter_++){
+  //   // id_ = s.id_;
+  //   leafs_ = s.leafs_;
+  //   meanEst_ = s.meanEst_;
+  // }
+
   void setMeanEst(const Eigen::Vector3f & mean){
     meanEst_ = mean;
   }
@@ -73,12 +79,12 @@ public:
   DataAssociation() {}
   ~DataAssociation() {}
 
-  __host__ void prepareData(std::vector<std::shared_ptr<TreeNodeType>> &, std::vector<std::vector<TreeNodeTypePtr>> &);
-  __host__ void prepareDataCPU(std::vector<std::shared_ptr<TreeNodeType>> & kdTrees, std::vector<std::vector<TreeNodeTypePtr>> & kdTreeLeafes);
-  __host__ void prepareDataExample();
-  __host__ void processTheSurfelMatches(std::vector<SurfelMatches> &);
-  __host__ std::vector<Surfelv2> & getSurfels() {return surfels_;}
-  __host__ void resetSurfels() {
+   void prepareData(std::vector<std::shared_ptr<TreeNodeType>> &, std::vector<std::vector<TreeNodeTypePtr>> &);
+   void prepareDataCPU(std::vector<std::shared_ptr<TreeNodeType>> & kdTrees, std::vector<std::vector<TreeNodeTypePtr>> & kdTreeLeafes);
+   void prepareDataExample();
+   void processTheSurfelMatches(std::vector<SurfelMatches> &);
+   std::vector<Surfelv2> & getSurfels() {return surfels_;}
+   void resetSurfels() {
     surfels_.clear();
     Surfelv2::resetTheSurfelsCounter(); // Surfel's id is its position in a surfels_ vector, so it must be reset
   }
