@@ -168,10 +168,11 @@ void DataAssociation::prepareDataCPU(std::vector<std::shared_ptr<TreeNodeType>> 
 
     // Copy the container for surfelMatches to GPU (output)
     std::vector<SurfelMatches> kdTreeMatches(kdTreeLeafes.at(i).size());
-   
+    if (i%10 == 0)
+      std::cout << "KdTree matching " << i << std::endl;
     // #pragma omp parallel for
     for (int j = i + 1; j < kdTrees.size(); j++) {
-      std::cout << "KdTree matching " << i << " with " << j << std::endl;
+      // std::cout << "KdTree matching " << i << " with " << j << std::endl;
       {
         srrg2_core::Chrono chGP2("Associating data", &_timings, false);
         associateDataKernelCPU(kdTreeLeafes.at(i).size(), i, j, kdTreeLeafes.at(i).data(), kdTreePtrs.data(), kdTreeMatches.data());
