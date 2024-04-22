@@ -48,6 +48,7 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+#include <pcl/io/ply_io.h>
 
 
 namespace structure_refinement {
@@ -110,6 +111,7 @@ namespace structure_refinement {
     void rawOptimizeSynthSurfels(const std::vector<SynthSurfel> &surfelsIn, std::vector<SynthSurfel> &surfelsOut);
     void rawOptimizeSurfels(std::vector<std::shared_ptr<Surfel>> &surfelsIn);
     void resetLeafsSurfelId();
+    void savePosesToFile();
 
    protected:
     using PointUnprojectorBase = srrg2_core::PointUnprojectorBase_<srrg2_core::PointNormalIntensity3fVectorCloud>;
@@ -128,6 +130,8 @@ namespace structure_refinement {
     std::vector<std::vector<TreeNodeTypePtr>> kdTreeLeafes_;  // Leafes from the subsequential kd-trees - Index corresponds to pose index
     std::vector<std::shared_ptr<TreeNodeType>> kdTrees_;      // Kd-trees created from subsequential point clouds - Index corresponds to pose index | Probably I don't need them
     std::vector<Eigen::Isometry3d> poses_;
+    std::vector<ros::Time> posesTimestamps_;
+
     std::vector<Eigen::Isometry3d> posesInGraph_;
     std::vector<Eigen::Isometry3d> posesWithoutNoise_;
 

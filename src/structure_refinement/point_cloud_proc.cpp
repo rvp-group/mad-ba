@@ -71,15 +71,15 @@ namespace structure_refinement {
       bool useSynthethicData = false;
 
       // Skip first n messages and process only m first clouds
-      int cloudsToSkip = 50;
-      int decimateRealData = 1;
-      int cloudsToProcess = 400 * decimateRealData;
+      int cloudsToSkip = 100;
+      int decimateRealData = 5;
+      int cloudsToProcess = 50 * decimateRealData;
+      int iterNum = 3;
       static int msgCnt = -1;
       if (++msgCnt < 2 * cloudsToSkip) {
         return true;
-      } else if (msgCnt > 2 * (cloudsToSkip + cloudsToProcess) - 1) {
-        for (int i = 0; i < 1; i++) {
-          
+      } else if (msgCnt > 2 * (cloudsToSkip + cloudsToProcess) - 0) {
+        for (int i = 0; i < iterNum; i++) {
           DataAssociation dataAssociation;
           {
             // srrg2_core::Chrono chGP("prepareData GPU", &_timings, false);
@@ -90,14 +90,26 @@ namespace structure_refinement {
             srrg2_core::Chrono chGP2("prepareData CPU", &_timings, false);
             dataAssociation.prepareDataCPU(kdTrees_, kdTreeLeafes_);
           }
-          // handleFactorGraphAfterGPU(dataAssociation.getSurfels());
+
+          // Publish and save to file
+          publishPointSurfv2(dataAssociation.getSurfels());
+          savePosesToFile();
+
+          handleFactorGraphAfterGPU(dataAssociation.getSurfels());
           // visual_tools_->deleteAllMarkers();
           // visualizeCorrespondingSurfelsV2WithPoses(dataAssociation.getSurfels());
-          
+
+          // if last iteraton publish and save to file
+          if (i == iterNum - 1) {
+            publishPointSurfv2(dataAssociation.getSurfels());
+            savePosesToFile();
+          }
+
           // Reset the leafs and surfels
           resetLeafsSurfelId();
           dataAssociation.resetSurfels();
         }
+
 
         ros::Duration(1.0).sleep();
         srrg2_core::Chrono::printReport(_timings);
@@ -159,6 +171,22 @@ namespace structure_refinement {
       }
 
       return true;
+  }
+
+  void PointCloudProc::savePosesToFile(){
+    static std::string path = ros::package::getPath("structure_refinement") + "/output/tum/";
+    static int cnt = 0;
+    std::string filename = "optimized_trajectory_" + std::to_string(cnt++) +  ".tum";
+    std::fstream file;
+    file.open(path + filename, std::fstream::out);  // Creates empty file
+    for (int i = 0; i < poses_.size(); i++) {
+      Eigen::Isometry3d pose = poses_.at(i);
+      Eigen::Quaterniond quat(pose.linear());
+      file << posesTimestamps_.at(i) << " "
+           << pose.translation().x() << " " << pose.translation().y() << " " << pose.translation().z() << " " 
+           << quat.x() << " " << quat.y() << " " << quat.z() << " " << quat.w() << std::endl;
+    }
+    file.close();
   }
 
   void PointCloudProc::visualizeSurfel(TreeNodeType* surfel, int markerColor) {
@@ -622,6 +650,7 @@ namespace structure_refinement {
       pose.translation() = trans;
       pose.linear() = quat.toRotationMatrix();
       poses_.push_back(pose);
+      posesTimestamps_.push_back(rosMsgPtr->header.stamp);
 
       // Generate the TF message based on odometry msgs
       static uint cnt = 0;
@@ -1187,7 +1216,7 @@ namespace structure_refinement {
     // visual_tools_->deleteAllMarkers();
 
     // publishSurfFromGraph(graph);
-    publishPointSurfv2(surfelsv2);
+
 
     // Optimize the graph
     {
@@ -1210,8 +1239,6 @@ namespace structure_refinement {
     publishTFFromGraph(graph);
     publishPointClouds();
     publishTFFromGraph(graph);
-
-    publishPointSurfv2(surfelsv2);
 
     // Visualize surfels
     // visual_tools_->deleteAllMarkers();
@@ -1894,6 +1921,9 @@ void PointCloudProc::rawOptimizeSurfels(std::vector<std::shared_ptr<Surfel>> & s
       ps.normal_x = n.x();
       ps.normal_y = n.y();
       ps.normal_z = n.z();
+      ps.r = r;
+      ps.g = g;
+      ps.b = b;
       ps.radius = radius;
       psCloud.push_back(ps);
     }
@@ -1907,6 +1937,12 @@ void PointCloudProc::rawOptimizeSurfels(std::vector<std::shared_ptr<Surfel>> & s
     rosCloud.header.frame_id = "map";
 
     surfelPointCloudPub_.publish(rosCloud);
+
+    static std::string path = ros::package::getPath("structure_refinement") + "/output/";
+    static int cnt = 0;
+    pcl::io::savePLYFile(path + "ply/surfelCloud_" + std::to_string(cnt) + ".ply", psCloud);
+    pcl::io::savePCDFile(path + "pcd/surfelCloud_" + std::to_string(cnt) + ".pcd", psCloud);
+    cnt++;
   }
 
   void PointCloudProc::publishPointClouds() {
@@ -1920,8 +1956,8 @@ void PointCloudProc::rawOptimizeSurfels(std::vector<std::shared_ptr<Surfel>> & s
     // Define the noise added to the poses
     static std::random_device rd;                                  // obtain a random number from hardware
     static std::mt19937 gen(rd());                                 // seed the generator
-    static std::normal_distribution<double> noiseTrans(0.0, 0.0);  // define the noise for translation
-    static std::normal_distribution<double> noiseRot(0.0, 0.0 * M_PI / 180.0);   // define the noise for rotation
+    static std::normal_distribution<double> noiseTrans(0.0, 0.3);  // define the noise for translation
+    static std::normal_distribution<double> noiseRot(0.0, 3.0 * M_PI / 180.0);   // define the noise for rotation
 
     // Take all poses
     Eigen::Isometry3d perturbation = Eigen::Isometry3d::Identity();
