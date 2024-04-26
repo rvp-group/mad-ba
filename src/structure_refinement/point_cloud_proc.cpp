@@ -71,14 +71,14 @@ namespace structure_refinement {
       bool useSynthethicData = false;
 
       // Skip first n messages and process only m first clouds
-      int cloudsToSkip = 100;
-      int decimateRealData = 5;
-      int cloudsToProcess = 50 * decimateRealData;
+      int cloudsToSkip = 0;
+      int decimateRealData = 1;
+      int cloudsToProcess = 1990 * decimateRealData;
       int iterNum = 3;
       static int msgCnt = -1;
       if (++msgCnt < 2 * cloudsToSkip) {
         return true;
-      } else if (msgCnt > 2 * (cloudsToSkip + cloudsToProcess) - 0) {
+      } else if (msgCnt > 2 * (cloudsToSkip + cloudsToProcess) - 2) {
         for (int i = 0; i < iterNum; i++) {
           DataAssociation dataAssociation;
           {
@@ -1243,7 +1243,7 @@ namespace structure_refinement {
     // Visualize surfels
     // visual_tools_->deleteAllMarkers();
     // publishSurfFromGraph(graph);
-    
+    graph->clear();
   }
 
   void PointCloudProc::updatePosesAndLeafsFromGraph(srrg2_solver::FactorGraphPtr& graph) {
@@ -1502,12 +1502,15 @@ void PointCloudProc::addSurfelsToGraphAfterGPU(srrg2_solver::FactorGraphPtr& gra
         Eigen::Isometry3f surfelInMap = Eigen::Isometry3f::Identity();
         surfelInMap.translation() = surfel.leafs_.at(i)->mean_.cast<float>();
         surfelInMap.linear() = matrixBetween2Vectors(Eigen::Vector3d(0, 0, 1), surfel.leafs_.at(0)->eigenvectors_.col(0)).cast<float>();
+        Eigen::Isometry3f surfInPose = odomPose.inverse() * surfelInMap;
+        poseSurfelFactor->setMeasurement(surfInPose);
 
-        poseSurfelFactor->setMeasurement(odomPose.inverse() * surfelInMap);
-
+        // Calculate angle inclination
+        Eigen::Vector3f surfNormal = surfel.leafs_.at(0)->eigenvectors_.col(0).cast<float>();
+        float cosa = surfNormal.dot(surfInPose.translation()) / (surfNormal.norm() * surfInPose.translation().norm());
         // Set information matrix
         Eigen::Matrix<float, 1, 1> infMat = Eigen::Matrix<float, 1, 1>::Identity();
-        infMat *= 1;
+        infMat *= abs(cosa);
         poseSurfelFactor->setInformationMatrix(infMat);
         // poseSurfelFactor->setInformationMatrix()
 
@@ -1956,8 +1959,8 @@ void PointCloudProc::rawOptimizeSurfels(std::vector<std::shared_ptr<Surfel>> & s
     // Define the noise added to the poses
     static std::random_device rd;                                  // obtain a random number from hardware
     static std::mt19937 gen(rd());                                 // seed the generator
-    static std::normal_distribution<double> noiseTrans(0.0, 0.3);  // define the noise for translation
-    static std::normal_distribution<double> noiseRot(0.0, 3.0 * M_PI / 180.0);   // define the noise for rotation
+    static std::normal_distribution<double> noiseTrans(0.0, 0.0);  // define the noise for translation
+    static std::normal_distribution<double> noiseRot(0.0, 0.0 * M_PI / 180.0);   // define the noise for rotation
 
     // Take all poses
     Eigen::Isometry3d perturbation = Eigen::Isometry3d::Identity();
