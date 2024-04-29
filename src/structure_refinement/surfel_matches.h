@@ -1,0 +1,23 @@
+#pragma once
+
+#include <math.h>
+
+#include <Eigen/Core>
+#include <iostream>
+#include <memory>
+#include <vector>
+
+#include "kdtree.cuh"
+
+namespace structure_refinement {
+using ContainerType = std::vector<Eigen::Vector3d>;
+using TreeNodeType = TreeNode3D<ContainerType>;
+using TreeNodeTypePtr = TreeNodeType*;
+
+struct SurfelMatches {
+  TreeNodeTypePtr surfelA;
+  TreeNodeTypePtr surfelB;
+  bool matched;
+};
+
+}  // namespace structure_refinement

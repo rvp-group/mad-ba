@@ -9,21 +9,6 @@
 
 #include <atomic>
 
-// class Managed {
-// public:
-//   void *operator new(size_t len) {
-//     void *ptr;
-//     cudaMallocManaged(&ptr, len);
-//     cudaDeviceSynchronize();
-//     return ptr;
-//   }
-
-//   void operator delete(void *ptr) {
-//     cudaDeviceSynchronize();
-//     cudaFree(ptr);
-//   }
-// };
-
 template <typename ContainerType_>
 class TreeNode3D {
 public:
@@ -53,24 +38,10 @@ public:
   }
 
 
-
   void applyTransform(const Eigen::Matrix3d& r, const Eigen::Vector3d& t);
 
-  __host__ __device__ inline TreeNode3D* bestMatchingLeafFast(const Eigen::Vector3d& query);
+  inline TreeNode3D* bestMatchingLeafFast(const Eigen::Vector3d& query);
 
-  __host__ __device__ int doNothing(int a ){ return 2*a;}
-
-  // __host__ __device__ void TreeNode3D<ContainerType_>::bestMatchingEveryLeaf(const TreeNode3D<ContainerType_> & kdTreeToMatch);
-
- __host__ __device__ void bestTest(const Eigen::Vector3d& query) {
-  TreeNode3D* node = this;
-  while (node->left_ || node->right_) {
-    const Eigen::Vector3d& _split_plane_normal = node->eigenvectors_.col(2);
-    node = node->left_;//((query - node->mean_).dot(_split_plane_normal) < double(0.0)) ? node->left_ : node->right_;
-  }
-}
-
-  
   inline void build(
              const IteratorType begin,
              const IteratorType end,
@@ -95,18 +66,9 @@ public:
 
   inline void getLeafs(std::back_insert_iterator<std::vector<TreeNode3D*>> it);
 
-  inline void setSurfelId(int id){
-    if (surfel_id_ == -1)
-      surfel_id_ = id;
-    else{
-      std::cout << "trying to change existing id " << std::endl;
-      exit(0);
-    }
-  }
+  inline void setSurfelId(int id);
 
-  inline void resetSurfelId() {
-      surfel_id_ = -1;
-  }
+  inline void resetSurfelId();
 
   int num_points_;
   bool matched_ = false;
@@ -118,14 +80,8 @@ public:
   Eigen::Matrix3d eigenvectors_;
   int surfel_id_ = -1;
   int pointcloud_id_ = -1;
-  // TreeNode3D(const TreeNode3D &s){
-  //   num_points_ = s.num_points_;
-  //   matched_ = s.matched_;
-  //   mean_ = s.mean_;
-  //   bbox_ = s.bbox_;
-  //   eigenvectors_ = s.eigenvectors_;
-  // }
-// protected:
+
+protected:
   TreeNode3D(){};
 };
 

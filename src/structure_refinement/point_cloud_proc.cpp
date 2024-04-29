@@ -1,28 +1,4 @@
 #include "point_cloud_proc.h"
-#include <srrg_messages/message_handlers/message_pack.h>
-#include <srrg_messages/messages/camera_info_message.h>
-#include <srrg_messages/messages/image_message.h>
-#include <srrg_messages/messages/imu_message.h>
-#include <srrg_messages/messages/transform_events_message.h>
-#include <srrg_pcl/point_cloud.h>
-#include <srrg_pcl/point_projector.h>
-#include <srrg_pcl/point_unprojector.h>
-#include <srrg_system_utils/shell_colors.h>
-#include <srrg_pcl/point_normal_curvature.h>
-#include <srrg_pcl/instances.h>
-#include <srrg_converters/converter.h>
-#include "kdtree.hpp"
-#include <tf2_ros/static_transform_broadcaster.h>
-#include <geometry_msgs/TransformStamped.h>
-#include <tf2_ros/static_transform_broadcaster.h>
-#include <geometry_msgs/TransformStamped.h>
-#include <cstdio>
-#include <tf2/LinearMath/Quaternion.h>
-#include <cmath>
-#include <rviz/SendFilePath.h>
-#include <srrg_system_utils/chrono.h>
-#include "data_association.h"
-
 
 namespace structure_refinement {
   using namespace srrg2_core;
@@ -428,20 +404,6 @@ namespace structure_refinement {
       }
   }
 
-  void PointCloudProc::saveSurfelsTofile() {
-      // Sort the surfels based on number of surfels its created from
-      std::sort(surfels_.begin(), surfels_.end(), [](const std::shared_ptr<Surfel>& a, const std::shared_ptr<Surfel>& b) {
-          return a->odomPoses_.size() < b->odomPoses_.size();
-      });
-      // Add all surfels as json object
-      auto jsonArray = nlohmann::json::array();
-      for(unsigned int i = 0; i < surfels_.size(); ++i) {
-          jsonArray.push_back(surfels_.at(i)->getJson());
-      }
-      // Save to file
-      std::ofstream o("pretty.json");
-      o << std::setw(4) << jsonArray.dump() << std::endl;
-  }
 
   void PointCloudProc::filterSurfels()
   {

@@ -49,7 +49,6 @@ inline void TreeNode3D<ContainerType_>::build(
   computeMeanAndCovariance(mean_, cov, begin, end);
   Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> es;
   es.computeDirect(cov);
-  // es.compute(cov);
   eigenvectors_ = es.eigenvectors();
   // Check the direction of a vector and flip it, so that it points to a LiDAR
   if (eigenvectors_.col(0).dot(mean_) > 0) {
@@ -196,8 +195,8 @@ inline void TreeNode3D<ContainerType_>::getLeafs(std::back_insert_iterator<std::
 
 template <typename ContainerType_>
 inline void TreeNode3D<ContainerType_>::applyTransform(const Eigen::Matrix3d& r,
-                                                const Eigen::Vector3d& t) {
-  mean_         = r * mean_ + t;
+                                                       const Eigen::Vector3d& t) {
+  mean_ = r * mean_ + t;
   eigenvectors_ = r * eigenvectors_;
   if (left_)
     left_->applyTransform(r, t);
@@ -205,16 +204,17 @@ inline void TreeNode3D<ContainerType_>::applyTransform(const Eigen::Matrix3d& r,
     right_->applyTransform(r, t);
 }
 
-// template <typename ContainerType_>
-// inline TreeNode3D<ContainerType_>*
-// TreeNode3D<ContainerType_>::bestMatchingEveryLeaf(const TreeNode3D<ContainerType_> & kdTreeToMatch)
-// {
-//   if (!left_ && !right_) {
-//     this->bestMatchingEveryLeaf(kdTreeToMatch);
-//     return;
-//   }
-//   if (left_)
-//     left_->bestMatchingEveryLeaf(kdTreeToMatch);
-//   if (right_)
-//     right_->bestMatchingEveryLeaf(kdTreeToMatch);
-// }
+template <typename ContainerType_>
+inline void TreeNode3D<ContainerType_>::setSurfelId(int id) {
+  if (surfel_id_ == -1)
+    surfel_id_ = id;
+  else {
+    std::cout << "Error: trying to change existing surfel id " << std::endl;
+    exit(0);
+  }
+}
+
+template <typename ContainerType_>
+inline void TreeNode3D<ContainerType_>::resetSurfelId() {
+  surfel_id_ = -1;
+}

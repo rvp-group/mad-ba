@@ -4,7 +4,6 @@
 #include <srrg_config/property_configurable.h>
 #include <srrg_property/property_eigen.h>
 #include <srrg_property/property_vector.h>
-
 #include <srrg_data_structures/matrix.h>
 #include <srrg_geometry/geometry_defs.h>
 #include <srrg_image/image.h>
@@ -19,36 +18,49 @@
 #include <srrg_messages/messages/point_cloud2_message.h>
 #include <srrg_messages/messages/odometry_message.h>
 #include <srrg_messages/messages/transform_events_message.h>
-#include "srrg_solver/solver_core/factor_graph.h"
-#include "srrg_solver/solver_core/instances.h"
-#include "srrg_solver/solver_core/internals/linear_solvers/instances.h"
-#include "srrg_solver/solver_core/internals/linear_solvers/sparse_block_linear_solver_ldl.h"
-#include "srrg_solver/solver_core/solver.h"
-#include "srrg_solver/variables_and_factors/types_3d/all_types.h"
-#include "srrg_solver/variables_and_factors/types_3d/instances.h"
+#include <srrg_solver/solver_core/factor_graph.h>
+#include <srrg_solver/solver_core/instances.h>
+#include <srrg_solver/solver_core/internals/linear_solvers/instances.h>
+#include <srrg_solver/solver_core/internals/linear_solvers/sparse_block_linear_solver_ldl.h>
+#include <srrg_solver/solver_core/solver.h>
+#include <srrg_solver/variables_and_factors/types_3d/all_types.h>
+#include <srrg_solver/variables_and_factors/types_3d/instances.h>
 #include <srrg_solver/solver_core/iteration_algorithm_lm.h>
-#include <nav_msgs/Odometry.h>
-#include <tf2_ros/transform_broadcaster.h>
+#include <srrg_solver/variables_and_factors/types_krzystof/instances.h>
+#include <srrg_solver/variables_and_factors/types_krzystof/variable_surfel.h>
+#include <srrg_solver/variables_and_factors/types_krzystof/se3_pose_surfel_factor_ad.h>
+#include <srrg_system_utils/chrono.h>
+#include <srrg_pcl/point_cloud.h>
+#include <srrg_system_utils/shell_colors.h>
+#include <srrg_pcl/point_normal_curvature.h>
+#include <srrg_pcl/instances.h>
+#include <srrg_converters/converter.h>
+#include <srrg_system_utils/chrono.h>
+
 #include <iostream>
 #include <vector>
+#include <random>
+
 #include <ros/ros.h>
+#include <ros/package.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/point_cloud2_iterator.h>
-#include <rviz_visual_tools/rviz_visual_tools.h>
-#include "kdtree.hpp"
-#include <random>
-#include "surfel.h"
-#include "json.hpp"
-#include "srrg_solver/variables_and_factors/types_krzystof/instances.h"
-#include "srrg_solver/variables_and_factors/types_krzystof/variable_surfel.h"
-#include "srrg_solver/variables_and_factors/types_krzystof/se3_pose_surfel_factor_ad.h"
-#include "data_association.h"
-// #include <pcl/impl/point_types.hpp>
-#include <sensor_msgs/PointCloud2.h>
+#include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/static_transform_broadcaster.h>
+#include <geometry_msgs/TransformStamped.h>
+#include <nav_msgs/Odometry.h>
+
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/io/ply_io.h>
+
+#include <rviz_visual_tools/rviz_visual_tools.h>
+#include <rviz/SendFilePath.h>
+
+#include "kdtree.hpp"
+#include "surfel.h"
+#include "data_association.h"
 
 
 namespace structure_refinement {
@@ -78,7 +90,6 @@ namespace structure_refinement {
     void visualizeSurfelPoses();
     void visualizeCorrespondingSurfelsWithPoses();
     void visualizeCorrespondingSurfelsV2WithPoses(std::vector<Surfelv2> &);
-    void saveSurfelsTofile();
     void filterSurfels();
     void visializeSurfelsv2(std::vector<Surfelv2> &surfelsv2);
     void publishPointSurfv2(std::vector<Surfelv2> &surfelsv2);
