@@ -1,8 +1,10 @@
 add_library(structure_refinement_library SHARED
   point_cloud_proc.cpp
+  point_cloud_proc_visual.cpp
   surfel.cpp
   instances.cpp
   data_association.cpp
+  utils.cpp
 )
 
 target_link_libraries(structure_refinement_library

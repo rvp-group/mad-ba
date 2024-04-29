@@ -61,6 +61,7 @@
 #include "kdtree.hpp"
 #include "surfel.h"
 #include "data_association.h"
+#include "utils.h"
 
 
 namespace structure_refinement {
@@ -82,9 +83,6 @@ namespace structure_refinement {
     bool createIntensityImage(srrg2_core::BaseSensorMessagePtr msg);  // Just for tests
     void publishCloudNormals(int);                                         // Publish normals for n-th set of point cloud / pose
     void createKDTree(std::vector<Eigen::Vector3d> &cloud, const Eigen::Isometry3d &lastPose);  // Creates kd-trees from the vector of points
-    Eigen::Matrix3d matrixBetween2Vectors(Eigen::Vector3d, Eigen::Vector3d );
-    double angleBetween2Vectors(const Eigen::Vector3d &, const Eigen::Vector3d &);
-    void mergeSurfels();
     void visualizeSurfel(TreeNodeTypePtr, int);  // ToDo: rename for leafs
     void visializeAllSurfels();
     void visualizeSurfelPoses();
@@ -103,22 +101,18 @@ namespace structure_refinement {
     void publishSurfFromGraph(const srrg2_solver::FactorGraphPtr & );
 
     void publishPointClouds();
-    void handleFactorGraph();
-    void handleFactorGraphBA();
     void optimizeFactorGraph(srrg2_solver::FactorGraphPtr &);
     void addNoiseToLastPose();
     void addSurfelFactors(const srrg2_solver::FactorGraphPtr &);
     void addPosesToGraphBA(srrg2_solver::FactorGraphPtr &, std::vector<Eigen::Isometry3d>&);
-    void addSurfelsToGraphBA(srrg2_solver::FactorGraphPtr&);
-    void handleFactorGraphAfterGPU(std::vector<Surfelv2>& );
-    void addSurfelsToGraphAfterGPU(srrg2_solver::FactorGraphPtr &, std::vector<Surfelv2> &);
+    void handleFactorGraph(std::vector<Surfelv2>& );
+    void addSurfelsToGraph(srrg2_solver::FactorGraphPtr &, std::vector<Surfelv2> &);
     std::vector<Eigen::Isometry3d> addSynthSurfelsToGraphBA(srrg2_solver::FactorGraphPtr&, std::vector<SynthSurfel> &); // Returns the GT Surfels poses
 
     void updateLeafsPosition(srrg2_solver::FactorGraphPtr&, std::vector<Eigen::Isometry3d>&);
     void updatePosesInGraph(srrg2_solver::FactorGraphPtr &);
     void updatePosesAndLeafsFromGraph(srrg2_solver::FactorGraphPtr &);
     void updateSurfelsMeanFromGraph(const srrg2_solver::FactorGraphPtr &graph, std::vector<Surfelv2> &surfelsv2);
-    void reloadRviz();
     void rawOptimizeSynthSurfels(const std::vector<SynthSurfel> &surfelsIn, std::vector<SynthSurfel> &surfelsOut);
     void rawOptimizeSurfels(std::vector<std::shared_ptr<Surfel>> &surfelsIn);
     void resetLeafsSurfelId();
@@ -151,7 +145,6 @@ namespace structure_refinement {
     // ROS
     ros::NodeHandle nh_;
     ros::Publisher pointCloudPub_;        // Raw point clouds publisher
-    ros::Publisher synthPointCloudPub_;   // Synthetic point clouds publisher
     ros::Publisher surfelPointCloudPub_;  // Synthetic point clouds publisher
 
     ros::Publisher odomPub_;  // Odometry from .bag file publisher
