@@ -44,7 +44,8 @@ namespace structure_refinement {
       srrg2_core::Chrono ch1("putMessage", &_timings, false);
       // Whether to use synthetic data
       bool useSynthethicData = false;
-
+      // Saves some RAM if false (4GB for ~2000 poses)
+      visualizePointClouds_ = false; 
       // Skip first n messages and process only m first clouds
       int cloudsToSkip = 0;
       int decimateRealData = 1;
@@ -155,8 +156,8 @@ namespace structure_refinement {
     std::fstream file;
     file.open(path + filename, std::fstream::out);  // Creates empty file
     for (int i = 0; i < poses_.size(); i++) {
-      Eigen::Isometry3d pose = poses_.at(i);
-      Eigen::Quaterniond quat(pose.linear());
+      Eigen::Isometry3f pose = poses_.at(i);
+      Eigen::Quaternionf quat(pose.linear());
       file << posesTimestamps_.at(i) << " "
            << pose.translation().x() << " " << pose.translation().y() << " " << pose.translation().z() << " " 
            << quat.x() << " " << quat.y() << " " << quat.z() << " " << quat.w() << std::endl;
@@ -205,9 +206,9 @@ namespace structure_refinement {
       nav_msgs::OdometryConstPtr rosMsgPtr = Converter::convert(odom);
       odomPub_.publish(*rosMsgPtr);
       // Save the pose in a vector
-      Eigen::Vector3d trans(rosMsgPtr->pose.pose.position.x, rosMsgPtr->pose.pose.position.y, rosMsgPtr->pose.pose.position.z);
-      Eigen::Quaterniond quat(rosMsgPtr->pose.pose.orientation.w, rosMsgPtr->pose.pose.orientation.x, rosMsgPtr->pose.pose.orientation.y, rosMsgPtr->pose.pose.orientation.z);
-      Eigen::Isometry3d pose = Eigen::Isometry3d::Identity();
+      Eigen::Vector3f trans(rosMsgPtr->pose.pose.position.x, rosMsgPtr->pose.pose.position.y, rosMsgPtr->pose.pose.position.z);
+      Eigen::Quaternionf quat(rosMsgPtr->pose.pose.orientation.w, rosMsgPtr->pose.pose.orientation.x, rosMsgPtr->pose.pose.orientation.y, rosMsgPtr->pose.pose.orientation.z);
+      Eigen::Isometry3f pose = Eigen::Isometry3f::Identity();
       pose.translation() = trans;
       pose.linear() = quat.toRotationMatrix();
       poses_.push_back(pose);
@@ -237,7 +238,7 @@ namespace structure_refinement {
       for (unsigned int i = 0; i < cloudBuffer.size();) { 
           // Check if there is already pose for that cloud
           // Get the index that this cloud will have
-          int idx_cloud = pointClouds_.size();
+          static int idx_cloud = 0;
           int idx_pose = poses_.size() - 1;
 
           // If there is no pose for the cloud then add it to a buffer (pointClouds_ is being pushed back at the end of this func)
@@ -257,38 +258,40 @@ namespace structure_refinement {
           cloud->frame_id.value() = "ba_estimate_" + std::to_string(cloudNum++);
           //   cloud->frame_id.value() = "ba_estimate_" + std::to_string(cloud->timestamp.value());;
 
-          // Create the point cloud to set new intensity value
-          std::shared_ptr<PointIntensity3fVectorCloud> pointCloudI3f(new PointIntensity3fVectorCloud());
+          if (visualizePointClouds_) {
+            // Create the point cloud to set new intensity value
+            PointIntensity3fVectorCloud pointCloudI3f;
 
-          // Get the point from original point cloud
-          cloud->getPointCloud(*pointCloudI3f);
+            // Get the point from original point cloud
+            cloud->getPointCloud(pointCloudI3f);
 
-          // Set the Intensity for Rviz visualization
-          for (PointIntensity3f& p : *pointCloudI3f) {
-            p.intensity() = (float) cloudNum;
+            // Set the Intensity for Rviz visualization
+            for (PointIntensity3f& p : pointCloudI3f) {
+              p.intensity() = (float)cloudNum;
+            }
+            // Set point to the visualizaton point cloud - overrides the intensity of the original cloud
+            cloud->setPointCloud(pointCloudI3f);
+
+            // Convert srrg2 to sensor_msgs point cloud
+            sensor_msgs::PointCloud2ConstPtr rosMsg = Converter::convert(cloud);
+
+            // Store the point cloud to visualize it after optimization etc.
+            rosPointClouds_.push_back(*rosMsg);
           }
-          // Set point to the visualizaton point cloud - overrides the intensity of the original cloud
-          cloud->setPointCloud(*pointCloudI3f);
-
-          // Convert srrg2 to sensor_msgs point cloud
-          sensor_msgs::PointCloud2ConstPtr rosMsg = Converter::convert(cloud);
-
-          // Store the point cloud to visualize it after optimization etc.
-          rosPointClouds_.push_back(*rosMsg);
 
           // Publish the raw cloud as ROS message
         //   pointCloudPub_.publish(*rosMsg);
 
           // Create Point3f Point Cloud from srrg2 point cloud
-          std::shared_ptr<Point3fVectorCloud> pointCloudPoint3f(new Point3fVectorCloud());
-          cloud->getPointCloud(*pointCloudPoint3f);
+          Point3fVectorCloud pointCloudPoint3f; //(new Point3fVectorCloud());
+          cloud->getPointCloud(pointCloudPoint3f);
 
           // TODO: optimize
-          // Conver point cloud to the std::vector<Eigen::Vector3d
-          std::vector<Eigen::Vector3d> pointCloudEigen;
-          // For now copy all the points from Point3f point cloud to std::vector<Eigen::Vector3d>
-          for (const Point3f& p : *pointCloudPoint3f) {
-              Eigen::Vector3d pe(p.coordinates().cast<double>());
+          // Conver point cloud to the std::vector<Eigen::Vector3f
+          std::vector<Eigen::Vector3f> pointCloudEigen;
+          // For now copy all the points from Point3f point cloud to std::vector<Eigen::Vector3f>
+          for (const Point3f& p : pointCloudPoint3f) {
+              Eigen::Vector3f pe(p.coordinates());
               pointCloudEigen.push_back(pe);
           }
 
@@ -299,8 +302,8 @@ namespace structure_refinement {
           //   publishCloudNormals(idx);
 
           // Store Point3f cloud in a vector
-          pointClouds_.push_back(std::move(pointCloudPoint3f));
-
+          // pointClouds_.push_back(std::move(pointCloudPoint3f));
+          idx_cloud++;
           // Remove cloud from buffer
           cloudBuffer.erase(cloudBuffer.begin());
       }
@@ -316,7 +319,7 @@ namespace structure_refinement {
 
       uint8_t decimation = 1;
 
-      // Eigen::Isometry3d pose = Eigen::Isometry3d::Identity();
+      // Eigen::Isometry3f pose = Eigen::Isometry3f::Identity();
       for (auto& leaf : kdTreeLeafes_.at(idx)) {
         // Decimate for Rviz
         if (static int cnt = 0; cnt++ % decimation != 0)
@@ -329,15 +332,15 @@ namespace structure_refinement {
   }
 
 
-  void PointCloudProc::createKDTree(std::vector<Eigen::Vector3d>& cloud, const Eigen::Isometry3d& lastPose) {
-      using ContainerType = std::vector<Eigen::Vector3d>;
+  void PointCloudProc::createKDTree(std::vector<Eigen::Vector3f>& cloud, const Eigen::Isometry3f& lastPose) {
+      using ContainerType = std::vector<Eigen::Vector3f>;
       using TreeNodeType = TreeNode3D<ContainerType>;
       using TreeNodeTypePtr = TreeNodeType*;
 
       static int pointCloudId = -1;
       pointCloudId++;
       // Create kdTree from the point cloud
-      std::shared_ptr<TreeNodeType> kdTree(new TreeNodeType(cloud.begin(),
+      std::unique_ptr<TreeNodeType> kdTree = std::make_unique<TreeNodeType>(cloud.begin(),
                                               cloud.end(),
                                               0.2,
                                               0.1,
@@ -345,11 +348,11 @@ namespace structure_refinement {
                                               2,
                                               nullptr,
                                               nullptr,
-                                              pointCloudId));
+                                              pointCloudId);
 
       // Transform kdTree according to the BA pose
-      // Eigen::Matrix3d rot = Eigen::Matrix3d::Identity();
-      // Eigen::Vector3d trans = Eigen::Vector3d(20,20,20);
+      // Eigen::Matrix3f rot = Eigen::Matrix3f::Identity();
+      // Eigen::Vector3f trans = Eigen::Vector3f(20,20,20);
       // The surfels should be transformed with the noise, so that they are consistent in a global frame (point cloud is in local)
       kdTree->applyTransform(lastPose.linear(), lastPose.translation());
       // Create a vector of leafes
@@ -366,12 +369,12 @@ namespace structure_refinement {
 
   void PointCloudProc::generateSyntheticOdometry(nav_msgs::Odometry & odomMsg) {
 
-      Eigen::Isometry3d poseInc = Eigen::Isometry3d::Identity();
-      poseInc.translation() = Eigen::Vector3d(1.0, 1.0, 0.01);
-      double roll = 0.01 * 3, pitch = 0.03 * 2, yaw = 0.05;
-      poseInc.linear() = (Eigen::AngleAxisd(roll, Eigen::Vector3d::UnitX()) *
-                          Eigen::AngleAxisd(pitch, Eigen::Vector3d::UnitY()) *
-                          Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()))
+      Eigen::Isometry3f poseInc = Eigen::Isometry3f::Identity();
+      poseInc.translation() = Eigen::Vector3f(1.0, 1.0, 0.01);
+      float roll = 0.01 * 3, pitch = 0.03 * 2, yaw = 0.05;
+      poseInc.linear() = (Eigen::AngleAxisf(roll, Eigen::Vector3f::UnitX()) *
+                          Eigen::AngleAxisf(pitch, Eigen::Vector3f::UnitY()) *
+                          Eigen::AngleAxisf(yaw, Eigen::Vector3f::UnitZ()))
                              .toRotationMatrix();
 
       // Change inc direction after 5 poses
@@ -380,17 +383,17 @@ namespace structure_refinement {
         poseInc.translation().x() *= -1;
 
       // Calculate new pose
-      Eigen::Isometry3d newPose = Eigen::Isometry3d::Identity();
+      Eigen::Isometry3f newPose = Eigen::Isometry3f::Identity();
       if (poses_.size() != 0)
           newPose = poses_.back() * poseInc;
       else{
           // Initial pose
-          newPose.translation() = Eigen::Vector3d(3, 2, 2);
+          newPose.translation() = Eigen::Vector3f(3, 2, 2);
           newPose.linear() = poseInc.linear();
       }
 
       // Fill up the odometry message
-      Eigen::Quaterniond quat(newPose.linear());
+      Eigen::Quaternionf quat(newPose.linear());
 
       // Normalize the quaternion
       quat.normalize();
@@ -412,34 +415,34 @@ namespace structure_refinement {
       
       static std::random_device rd;                           // obtain a random number from hardware
       static std::mt19937 gen(rd());                          // seed the generator
-      static std::normal_distribution<double> noise(0, 0.03);  // noise (mean, var)
+      static std::normal_distribution<float> noise(0, 0.03);  // noise (mean, var)
 
       // Synthethic cloud
-      std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>> pointCloudSynth;
+      std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> pointCloudSynth;
 
       // Room dimensons
-      double width = 10, depth = 15, height = 5;
-      double pointsDensity = 5;  // Pts per meter
-      Eigen::Vector3d point;
+      float width = 10, depth = 15, height = 5;
+      float pointsDensity = 5;  // Pts per meter
+      Eigen::Vector3f point;
       // Generate floor
       for (int i = 0; i <= width * pointsDensity; i++) {
           for (int j = 0; j <= depth * pointsDensity; j++) {
-              pointCloudSynth.push_back(Eigen::Vector3d(i / pointsDensity + noise(gen), j / pointsDensity + noise(gen), 0 + noise(gen)));
+              pointCloudSynth.push_back(Eigen::Vector3f(i / pointsDensity + noise(gen), j / pointsDensity + noise(gen), 0 + noise(gen)));
           }
       }
       // Generate front and back walls
       for (int i = 0; i <= width * pointsDensity; i++) {
           for (int j = 1; j < height * pointsDensity; j++) {
-              pointCloudSynth.push_back(Eigen::Vector3d(i / pointsDensity + noise(gen), 0 + noise(gen), j / pointsDensity + noise(gen)));
-              pointCloudSynth.push_back(Eigen::Vector3d(i / pointsDensity + noise(gen), depth + noise(gen), j / pointsDensity + noise(gen)));
+              pointCloudSynth.push_back(Eigen::Vector3f(i / pointsDensity + noise(gen), 0 + noise(gen), j / pointsDensity + noise(gen)));
+              pointCloudSynth.push_back(Eigen::Vector3f(i / pointsDensity + noise(gen), depth + noise(gen), j / pointsDensity + noise(gen)));
           }
       }
 
       // Generate left and right walls
       for (int i = 1; i < depth * pointsDensity; i++) {
           for (int j = 1; j < height * pointsDensity; j++) {
-            pointCloudSynth.push_back(Eigen::Vector3d(0 + noise(gen), i / pointsDensity + noise(gen), j / pointsDensity + noise(gen)));
-            pointCloudSynth.push_back(Eigen::Vector3d(width + noise(gen), i / pointsDensity + noise(gen), j / pointsDensity + noise(gen)));
+            pointCloudSynth.push_back(Eigen::Vector3f(0 + noise(gen), i / pointsDensity + noise(gen), j / pointsDensity + noise(gen)));
+            pointCloudSynth.push_back(Eigen::Vector3f(width + noise(gen), i / pointsDensity + noise(gen), j / pointsDensity + noise(gen)));
           }
       }
 
@@ -453,7 +456,7 @@ namespace structure_refinement {
       cloudMsg.is_dense = true;
 
       // Get the last pose to transform the pose to local LiDar frame
-      Eigen::Isometry3d & lastSynthPose = poses_.back();
+      Eigen::Isometry3f & lastSynthPose = poses_.back();
       // Create the modifier to setup the fields and memory
       sensor_msgs::PointCloud2Modifier cloudModifier(cloudMsg);
       // Set the fields that our cloud will have
@@ -546,7 +549,7 @@ namespace structure_refinement {
     Eigen::Isometry3f perturbation = Eigen::Isometry3f::Identity();
     static std::random_device rd;                                 // obtain a random number from hardware
     static std::mt19937 gen(rd());                                // seed the generator
-    static std::normal_distribution<double> noise(0.1, 0.2);  //  // define the range
+    static std::normal_distribution<float> noise(0.1, 0.2);  //  // define the range
 
     // Take all poses
     for (uint idx = 1; idx < poses_.size(); idx++) {
@@ -610,9 +613,11 @@ namespace structure_refinement {
       addPosesToGraphBA(graph, poses_);
     }
 
-    publishTFFromGraph(graph);
-    publishPointClouds();
-    publishTFFromGraph(graph);
+      publishTFFromGraph(graph);
+    if (visualizePointClouds_){
+      publishPointClouds();
+      publishTFFromGraph(graph);
+    }
 
     // Add surfels
     {
@@ -643,9 +648,10 @@ namespace structure_refinement {
 
     // Visualize point clouds
     publishTFFromGraph(graph);
-    publishPointClouds();
-    publishTFFromGraph(graph);
-
+    if(visualizePointClouds_) {
+      publishPointClouds();
+      publishTFFromGraph(graph);
+    }
     // Visualize surfels
     // visual_tools_->deleteAllMarkers();
     // publishSurfFromGraph(graph);
@@ -660,10 +666,10 @@ namespace structure_refinement {
         std::cout << "Error in updatePosesInGraph" << std::endl;
         exit(0);
       }
-      Eigen::Isometry3d poseInc = varPose->estimate().cast<double>() * poses_.at(i).inverse();
+      Eigen::Isometry3f poseInc = varPose->estimate().cast<float>() * poses_.at(i).inverse();
       if(i < kdTrees_.size())
         kdTrees_.at(i)->applyTransform(poseInc.linear(), poseInc.translation());
-      poses_.at(i) = varPose->estimate().cast<double>();
+      poses_.at(i) = varPose->estimate().cast<float>();
     }
   }
 
@@ -675,39 +681,39 @@ void PointCloudProc::updatePosesInGraph(srrg2_solver::FactorGraphPtr& graph) {
       std::cout << "Error in updatePosesInGraph" << std::endl;
       exit(0);
     }
-    posesInGraph_.push_back(varPose->estimate().cast<double>());
+    posesInGraph_.push_back(varPose->estimate().cast<float>());
 
   }
 }
 
-std::vector<Eigen::Isometry3d> PointCloudProc::addSynthSurfelsToGraphBA(srrg2_solver::FactorGraphPtr& graph, std::vector<SynthSurfel> & surfOut) {
+std::vector<Eigen::Isometry3f> PointCloudProc::addSynthSurfelsToGraphBA(srrg2_solver::FactorGraphPtr& graph, std::vector<SynthSurfel> & surfOut) {
 
   int64_t lastGraphId = poses_.size() - 1;
 
-  std::vector<Eigen::Isometry3d> surfelGTVector;
+  std::vector<Eigen::Isometry3f> surfelGTVector;
 
   // Used to generate random position of a surfel
-  Eigen::Isometry3d surfelGT = Eigen::Isometry3d::Identity();
+  Eigen::Isometry3f surfelGT = Eigen::Isometry3f::Identity();
   static std::random_device rdS;                            // obtain a random number from hardware
   static std::mt19937 genS(rdS());                          // seed the generator
-  static std::normal_distribution<double> trans(5.0, 8.0);  // define the noise for translation
-  static std::normal_distribution<double> rot(0.0, M_PI);    // define the noise for rotation
+  static std::normal_distribution<float> trans(5.0, 8.0);  // define the noise for translation
+  static std::normal_distribution<float> rot(0.0, M_PI);    // define the noise for rotation
 
   // Generate the surfels GT positions vector
   for (int j = 0; j < 20; j++) {
 
     // Random position of a surfel
-    surfelGT.translation() = Eigen::Vector3d(trans(genS), trans(genS), trans(genS));
-    surfelGT.linear() = (Eigen::AngleAxisd(rot(genS), Eigen::Vector3d::UnitX()) *
-                         Eigen::AngleAxisd(rot(genS), Eigen::Vector3d::UnitY()) *
-                         Eigen::AngleAxisd(rot(genS), Eigen::Vector3d::UnitZ()))
+    surfelGT.translation() = Eigen::Vector3f(trans(genS), trans(genS), trans(genS));
+    surfelGT.linear() = (Eigen::AngleAxisf(rot(genS), Eigen::Vector3f::UnitX()) *
+                         Eigen::AngleAxisf(rot(genS), Eigen::Vector3f::UnitY()) *
+                         Eigen::AngleAxisf(rot(genS), Eigen::Vector3f::UnitZ()))
                             .toRotationMatrix();
     surfelGTVector.push_back(surfelGT);
   }
 
   for (int j = 0; j < surfelGTVector.size(); j++) {
     auto surfelVar = std::make_shared<srrg2_solver::VariableSurfelAD1D>();
-    Eigen::Isometry3d surfelPoseGT = surfelGTVector.at(j);
+    Eigen::Isometry3f surfelPoseGT = surfelGTVector.at(j);
     surfelVar->setEstimate(surfelPoseGT.cast<float>());
     surfelVar->setGraphId(++lastGraphId);
     // surfelVar->setStatus(srrg2_solver::VariableBase::Status::Fixed);
@@ -744,16 +750,16 @@ std::vector<Eigen::Isometry3d> PointCloudProc::addSynthSurfelsToGraphBA(srrg2_so
       surfelInPose = surfelInPose * perturbation;
       poseSurfelFactor->setMeasurement(surfelInPose);
       Eigen::Isometry3f surfelInMap = varPose->estimate() * surfelInPose;
-      visual_tools_->publishAxis(surfelInMap.cast<double>(), rviz_visual_tools::LARGE);
-      visual_tools_->publishLine(varPose->estimate().translation().cast<double>(), surfelInMap.translation().cast<double>(), static_cast<rviz_visual_tools::colors>(markerColor%14));
+    //   visual_tools_->publishAxis(surfelInMap.cast<float>(), rviz_visual_tools::LARGE);
+    //   visual_tools_->publishLine(varPose->estimate().translation().cast<float>(), surfelInMap.translation().cast<float>(), static_cast<rviz_visual_tools::colors>(markerColor%14));
       visual_tools_->trigger();
 
       // Add observation to synth surfel
-       Eigen::Matrix<double,3,2> obs;
+       Eigen::Matrix<float,3,2> obs;
         // Position of a surfel
-      obs.block<3,1>(0,0) = surfelInMap.translation().cast<double>();
+      obs.block<3,1>(0,0) = surfelInMap.translation().cast<float>();
         // Normal of a surfel
-      obs.block<3,1>(0,1) = surfelInMap.linear().col(2).cast<double>();
+      obs.block<3,1>(0,1) = surfelInMap.linear().col(2).cast<float>();
       synthSurfel.addObservation(obs);
 
       // Set information matrix
@@ -767,9 +773,9 @@ std::vector<Eigen::Isometry3d> PointCloudProc::addSynthSurfelsToGraphBA(srrg2_so
       if (i == poses_.size() - 1) {
         perturbation.translation() *= 2;
         surfelVar->setEstimate(surfelPoseGT.cast<float>() * perturbation);
-        Eigen::Matrix<double,3,2> obs;
-        synthSurfel.estPosition_ = surfelVar->estimate().translation().cast<double>();
-        synthSurfel.estNormal_ = surfelVar->estimate().linear().col(2).cast<double>();
+        Eigen::Matrix<float,3,2> obs;
+        synthSurfel.estPosition_ = surfelVar->estimate().translation().cast<float>();
+        synthSurfel.estNormal_ = surfelVar->estimate().linear().col(2).cast<float>();
         surfOut.push_back(synthSurfel);
       }
       // In the last iteration add noise to the pose
@@ -798,11 +804,11 @@ void PointCloudProc::addSurfelsToGraph(srrg2_solver::FactorGraphPtr& graph, std:
 
       // Set initial estimate
       // ToDo: Average all the observed surfels
-      Eigen::Isometry3d surfelPose = Eigen::Isometry3d::Identity();
+      Eigen::Isometry3f surfelPose = Eigen::Isometry3f::Identity();
       Eigen::Isometry3f rotationY = Eigen::Isometry3f::Identity();
       rotationY.linear() << 0, 0, 1, 0, 1, 0, -1, 0, 0;
       surfelPose.translation() = surfel.leafs_.at(0)->mean_;
-      surfelPose.linear() = matrixBetween2Vectors(Eigen::Vector3d(0, 0, 1), surfel.leafs_.at(0)->eigenvectors_.col(0));
+      surfelPose.linear() = matrixBetween2Vectors(Eigen::Vector3f(0, 0, 1), surfel.leafs_.at(0)->eigenvectors_.col(0));
       surfelVar->setEstimate(surfelPose.cast<float>());
 
       // std::cout << "SurfelPose before optim: " << std::endl << surfelVar->estimate().matrix() << std::endl;
@@ -814,7 +820,7 @@ void PointCloudProc::addSurfelsToGraph(srrg2_solver::FactorGraphPtr& graph, std:
       for (uint i = 0; i < surfel.leafs_.size(); i++) {
 
         // Create factor between pose and the surfel
-        // Eigen::Isometry3d surfelOdomPose = surfel->odomPoses_.at(i);
+        // Eigen::Isometry3f surfelOdomPose = surfel->odomPoses_.at(i);
         std::shared_ptr<srrg2_solver::SE3PoseSurfelQuaternionErrorFactorAD1D> poseSurfelFactor = std::make_shared<srrg2_solver::SE3PoseSurfelQuaternionErrorFactorAD1D>();
         poseSurfelFactor->setVariableId(0, surfel.leafs_.at(i)->pointcloud_id_);
         poseSurfelFactor->setVariableId(1, surfelVar->graphId());
@@ -825,7 +831,7 @@ void PointCloudProc::addSurfelsToGraph(srrg2_solver::FactorGraphPtr& graph, std:
         Eigen::Isometry3f odomPose = poses_.at(surfel.leafs_.at(i)->pointcloud_id_).cast<float>();
         Eigen::Isometry3f surfelInMap = Eigen::Isometry3f::Identity();
         surfelInMap.translation() = surfel.leafs_.at(i)->mean_.cast<float>();
-        surfelInMap.linear() = matrixBetween2Vectors(Eigen::Vector3d(0, 0, 1), surfel.leafs_.at(0)->eigenvectors_.col(0)).cast<float>();
+        surfelInMap.linear() = matrixBetween2Vectors(Eigen::Vector3f(0, 0, 1), surfel.leafs_.at(0)->eigenvectors_.col(0)).cast<float>();
         Eigen::Isometry3f surfInPose = odomPose.inverse() * surfelInMap;
         poseSurfelFactor->setMeasurement(surfInPose);
 
@@ -844,7 +850,7 @@ void PointCloudProc::addSurfelsToGraph(srrg2_solver::FactorGraphPtr& graph, std:
     }
 }
 
-void PointCloudProc::addPosesToGraphBA(srrg2_solver::FactorGraphPtr& graph, std::vector<Eigen::Isometry3d>& poseVect) {
+void PointCloudProc::addPosesToGraphBA(srrg2_solver::FactorGraphPtr& graph, std::vector<Eigen::Isometry3f>& poseVect) {
 
   // Take all poses
   for (uint idx = 0; idx < poseVect.size(); idx++) {
@@ -867,14 +873,14 @@ void PointCloudProc::addPosesToGraphBA(srrg2_solver::FactorGraphPtr& graph, std:
 }
 
 
-void PointCloudProc::updateLeafsPosition(srrg2_solver::FactorGraphPtr& graph, std::vector<Eigen::Isometry3d> & lastPosesInGraph) {
+void PointCloudProc::updateLeafsPosition(srrg2_solver::FactorGraphPtr& graph, std::vector<Eigen::Isometry3f> & lastPosesInGraph) {
   for (uint i = 0; i < kdTrees_.size(); i++) {
     srrg2_solver::VariableSE3QuaternionRight* varPose = dynamic_cast<srrg2_solver::VariableSE3QuaternionRight*>(graph->variable(i));
     if (!varPose) {
       continue;
     }
     // std::cout << "Id of variable   "  << varPose->graphId() << std::endl;
-    Eigen::Isometry3d poseInc = varPose->estimate().cast<double>() * poses_.at(i).inverse() ;
+    Eigen::Isometry3f poseInc = varPose->estimate().cast<float>() * poses_.at(i).inverse() ;
     // poseInc.matrix() *= 0.1;
     // std::cout << "Change in pose #" << i << std::endl << poseInc.matrix() << std::endl;
     // It's enough to transform only kdTree_, as kdTreeLeafes_ contains pointers to them
@@ -885,23 +891,23 @@ void PointCloudProc::updateLeafsPosition(srrg2_solver::FactorGraphPtr& graph, st
 
 void PointCloudProc::rawOptimizeSynthSurfels(const std::vector<SynthSurfel> & surfelsIn, std::vector<SynthSurfel> & surfelsOut){
 
-  // std::vector<Eigen::Isometry3d> surfelsOut;
+  // std::vector<Eigen::Isometry3f> surfelsOut;
   // surfelsOut = surfelsIn;
   srrg2_core::Chrono ch1("rawOptimizeSynthSurfels: ", &_timings, false);
 
   // Iterate through all surfels
   for (auto s : surfelsIn) {
-    double A = 0;
-    double b = 0;
+    float A = 0;
+    float b = 0;
     for (int i = 0; i < s.observations_.size(); i++) {
-      Eigen::Vector3d measPos = s.observations_.at(i).block<3, 1>(0, 0);
-      Eigen::Vector3d measNorm = s.observations_.at(i).block<3, 1>(0, 1);
+      Eigen::Vector3f measPos = s.observations_.at(i).block<3, 1>(0, 0);
+      Eigen::Vector3f measNorm = s.observations_.at(i).block<3, 1>(0, 1);
 
-      double e = s.estNormal_.dot(s.estPosition_ - measPos);
+      float e = s.estNormal_.dot(s.estPosition_ - measPos);
       A += 1;
       b += 1 * e;     
     }
-    double dx = -b / A;
+    float dx = -b / A;
     SynthSurfel newSurf;
     newSurf = s;
     newSurf.estPosition_ += dx * s.estNormal_;
@@ -920,28 +926,28 @@ void PointCloudProc::resetLeafsSurfelId(){
 
 void PointCloudProc::rawOptimizeSurfels(std::vector<std::shared_ptr<Surfel>> & surfelsIn){ //}, std::vector<SynthSurfel> & surfelsOut){
 
-  // std::vector<Eigen::Isometry3d> surfelsOut;
+  // std::vector<Eigen::Isometry3f> surfelsOut;
   // surfelsOut = surfelsIn;
   srrg2_core::Chrono ch1("rawOptimizeSurfels: ", &_timings, false);
 
   // Iterate through all surfels
   for (auto s : surfelsIn) {
-    double A = 0;
-    double b = 0;
+    float A = 0;
+    float b = 0;
     // Set the initial estimates to the first observations - the same as in the case of using solver
     s->estPosition_ = s->observations_.at(0).block<3, 1>(0, 3);
      s->estNormal_ = s->observations_.at(0).col(0); // block<3, 1>(0, 1);
     // s.estNormal_ = s.observations_.at(0).block<3, 1>(0, 1);
 
     for (int i = 0; i < s->observations_.size(); i++) {
-      Eigen::Vector3d measPos = s->observations_.at(i).block<3, 1>(0, 3);
-      Eigen::Vector3d measNorm = s->observations_.at(i).block<3, 1>(0, 0);
+      Eigen::Vector3f measPos = s->observations_.at(i).block<3, 1>(0, 3);
+      Eigen::Vector3f measNorm = s->observations_.at(i).block<3, 1>(0, 0);
 
-      double e = s->estNormal_.dot(s->estPosition_ - measPos);
+      float e = s->estNormal_.dot(s->estPosition_ - measPos);
       A += 1;
       b += 1 * e;     
     }
-    double dx = -b / A;
+    float dx = -b / A;
     s->estPosition_ += dx * s->estNormal_;
   }
 
@@ -1020,17 +1026,17 @@ void PointCloudProc::rawOptimizeSurfels(std::vector<std::shared_ptr<Surfel>> & s
         // Create multiple subsurfel variables for each odomPoses_
         auto surfelVar = std::make_shared<srrg2_solver::VariableSE3QuaternionRight>();
         surfelVar->setGraphId(++lastGraphId);
-        Eigen::Isometry3d surfelPose = Eigen::Isometry3d::Identity();
+        Eigen::Isometry3f surfelPose = Eigen::Isometry3f::Identity();
         surfelPose.translation() = surfel->observations_.at(i).block<3,1>(0,3);
         // surfelPose.linear() = surfel->observations_.at(i).block<3,3>(0,0);
-        surfelPose.linear() =  matrixBetween2Vectors(Eigen::Vector3d(1, 0, 0), surfel->observations_.at(i).block<3,1>(0,0));
+        surfelPose.linear() =  matrixBetween2Vectors(Eigen::Vector3f(1, 0, 0), surfel->observations_.at(i).block<3,1>(0,0));
         // Connect subsurfels with poses and set estimates / measurements
         surfelVar->setEstimate(surfelPose.cast<float>());
         graph->addVariable(surfelVar);
 
 
         // Create factor between pose and the surfel
-        // Eigen::Isometry3d surfelOdomPose = surfel->odomPoses_.at(i);
+        // Eigen::Isometry3f surfelOdomPose = surfel->odomPoses_.at(i);
   
         auto poseSurfelFactor = std::make_shared<srrg2_solver::SE3PosePoseGeodesicErrorFactor>();
         poseSurfelFactor->setVariableId(0, (int64_t)odomPoseId);
@@ -1242,27 +1248,27 @@ void PointCloudProc::rawOptimizeSurfels(std::vector<std::shared_ptr<Surfel>> & s
     // Define the noise added to the poses
     static std::random_device rd;                                  // obtain a random number from hardware
     static std::mt19937 gen(rd());                                 // seed the generator
-    static std::normal_distribution<double> noiseTrans(0.0, 0.0);  // define the noise for translation
-    static std::normal_distribution<double> noiseRot(0.0, 0.0 * M_PI / 180.0);   // define the noise for rotation
+    static std::normal_distribution<float> noiseTrans(0.0, 0.0);  // define the noise for translation
+    static std::normal_distribution<float> noiseRot(0.0, 0.0 * M_PI / 180.0);   // define the noise for rotation
 
     // Take all poses
-    Eigen::Isometry3d perturbation = Eigen::Isometry3d::Identity();
-    // for (Eigen::Isometry3d& pose : poses_.back()) {
-    Eigen::Isometry3d& pose = poses_.back();
+    Eigen::Isometry3f perturbation = Eigen::Isometry3f::Identity();
+    // for (Eigen::Isometry3f& pose : poses_.back()) {
+    Eigen::Isometry3f& pose = poses_.back();
 
                               // Generate the noise matrix
-                              perturbation.translation() = Eigen::Vector3d(noiseTrans(gen), noiseTrans(gen), noiseTrans(gen));
-    perturbation.linear() = (Eigen::AngleAxisd(noiseRot(gen), Eigen::Vector3d::UnitX()) *
-                             Eigen::AngleAxisd(noiseRot(gen), Eigen::Vector3d::UnitY()) *
-                             Eigen::AngleAxisd(noiseRot(gen), Eigen::Vector3d::UnitZ()))
+                              perturbation.translation() = Eigen::Vector3f(noiseTrans(gen), noiseTrans(gen), noiseTrans(gen));
+    perturbation.linear() = (Eigen::AngleAxisf(noiseRot(gen), Eigen::Vector3f::UnitX()) *
+                             Eigen::AngleAxisf(noiseRot(gen), Eigen::Vector3f::UnitY()) *
+                             Eigen::AngleAxisf(noiseRot(gen), Eigen::Vector3f::UnitZ()))
                                 .toRotationMatrix();
 
     // Add noise to the pose
-    Eigen::Isometry3d constPerturbation = Eigen::Isometry3d::Identity();
-    constPerturbation.translation() = Eigen::Vector3d(0.6, 0.8, 0.9);
-    constPerturbation.linear() = (Eigen::AngleAxisd(5.0 * M_PI / 180.0, Eigen::Vector3d::UnitX()) *
-                                  Eigen::AngleAxisd(5.0 * M_PI / 180.0, Eigen::Vector3d::UnitY()) *
-                                  Eigen::AngleAxisd(5.0 * M_PI / 180.0, Eigen::Vector3d::UnitZ()))
+    Eigen::Isometry3f constPerturbation = Eigen::Isometry3f::Identity();
+    constPerturbation.translation() = Eigen::Vector3f(0.6, 0.8, 0.9);
+    constPerturbation.linear() = (Eigen::AngleAxisf(5.0 * M_PI / 180.0, Eigen::Vector3f::UnitX()) *
+                                  Eigen::AngleAxisf(5.0 * M_PI / 180.0, Eigen::Vector3f::UnitY()) *
+                                  Eigen::AngleAxisf(5.0 * M_PI / 180.0, Eigen::Vector3f::UnitZ()))
                                      .toRotationMatrix();
 
     // Save pose without noise

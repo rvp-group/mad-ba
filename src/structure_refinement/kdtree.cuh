@@ -15,15 +15,15 @@ public:
   using ContainerType    = ContainerType_;
   using ContainerTypePtr = std::shared_ptr<ContainerType>;
   using IteratorType     = typename ContainerType::iterator;
-  using AnswerType       = std::vector<Eigen::Vector3d*>;
+  using AnswerType       = std::vector<Eigen::Vector3f*>;
   using PtrType          = TreeNode3D*;
   using ThisType         = TreeNode3D<ContainerType>;
 
   inline TreeNode3D(
              const IteratorType begin,
              const IteratorType end,
-             const double bbox_threshold,
-             const double flatness_threshold,
+             const float bbox_threshold,
+             const float flatness_threshold,
              const int level,
              const int max_parallel_level,
              TreeNode3D* parent,
@@ -38,15 +38,15 @@ public:
   }
 
 
-  void applyTransform(const Eigen::Matrix3d& r, const Eigen::Vector3d& t);
+  void applyTransform(const Eigen::Matrix3f& r, const Eigen::Vector3f& t);
 
-  inline TreeNode3D* bestMatchingLeafFast(const Eigen::Vector3d& query);
+  inline TreeNode3D* bestMatchingLeafFast(const Eigen::Vector3f& query);
 
   inline void build(
              const IteratorType begin,
              const IteratorType end,
-             const double bbox_threshold,
-             const double flatness_threshold,
+             const float bbox_threshold,
+             const float flatness_threshold,
              const int level,
              const int max_parallel_level,
              TreeNode3D* parent,
@@ -56,8 +56,8 @@ public:
   static inline ThisType* makeSubtree(
                                const IteratorType begin,
                                const IteratorType end,
-                               const double bbox_threshold,
-                               const double flatness_threshold,
+                               const float bbox_threshold,
+                               const float flatness_threshold,
                                const int level,
                                const int max_parallel_level,
                                TreeNode3D* parent,
@@ -75,9 +75,9 @@ public:
   PtrType left_ = nullptr;
   PtrType right_ = nullptr;
   PtrType parent_ = nullptr;
-  Eigen::Vector3d mean_;
-  Eigen::Vector3d bbox_;
-  Eigen::Matrix3d eigenvectors_;
+  Eigen::Vector3f mean_;
+  Eigen::Vector3f bbox_;
+  Eigen::Matrix3f eigenvectors_;
   int surfel_id_ = -1;
   int pointcloud_id_ = -1;
 

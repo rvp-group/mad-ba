@@ -9,7 +9,7 @@
 #include "structure_refinement/surfel_matches.h"
 
 namespace structure_refinement {
-using ContainerType = std::vector<Eigen::Vector3d>;
+using ContainerType = std::vector<Eigen::Vector3f>;
 using TreeNodeType = TreeNode3D<ContainerType>;
 using TreeNodeTypePtr = TreeNodeType *;
 
@@ -19,7 +19,7 @@ class DataAssociation {
   ~DataAssociation() {}
 
   void associateDataKernelCPU(int, int, int, TreeNodeTypePtr *, TreeNodeTypePtr *, SurfelMatches *);
-  void prepareDataCPU(std::vector<std::shared_ptr<TreeNodeType>> &kdTrees, std::vector<std::vector<TreeNodeTypePtr>> &kdTreeLeafes);
+  void prepareDataCPU(std::vector<std::unique_ptr<TreeNodeType>> &kdTrees, std::vector<std::vector<TreeNodeTypePtr>> &kdTreeLeafes);
   void processTheSurfelMatches(std::vector<SurfelMatches> &);
   void resetSurfels();
   std::vector<Surfelv2> &getSurfels() { return surfels_; }

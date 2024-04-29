@@ -13,8 +13,8 @@ template <typename ContainerType_>
 inline TreeNode3D<ContainerType_>::TreeNode3D(
                                        const IteratorType begin,
                                        const IteratorType end,
-                                       const double bbox_threshold,
-                                       const double flatness_threshold,
+                                       const float bbox_threshold,
+                                       const float flatness_threshold,
                                        const int level,
                                        const int max_parallel_level,
                                        TreeNode3D* parent,
@@ -36,8 +36,8 @@ template <typename ContainerType_>
 inline void TreeNode3D<ContainerType_>::build(
                                        const IteratorType begin,
                                        const IteratorType end,
-                                       const double bbox_threshold,
-                                       const double flatness_threshold,
+                                       const float bbox_threshold,
+                                       const float flatness_threshold,
                                        const int level,
                                        const int max_parallel_level,
                                        TreeNode3D* parent,
@@ -45,9 +45,9 @@ inline void TreeNode3D<ContainerType_>::build(
                                        int pointCloudId) {
   pointcloud_id_ = pointCloudId;
   parent_ = parent;
-  Eigen::Matrix3d cov;
+  Eigen::Matrix3f cov;
   computeMeanAndCovariance(mean_, cov, begin, end);
-  Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> es;
+  Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> es;
   es.computeDirect(cov);
   eigenvectors_ = es.eigenvectors();
   // Check the direction of a vector and flip it, so that it points to a LiDAR
@@ -69,11 +69,11 @@ inline void TreeNode3D<ContainerType_>::build(
       }
     }
 
-    Eigen::Vector3d& nearest_point = *begin;
-    double shortest_dist = std::numeric_limits<double>::max();
+    Eigen::Vector3f& nearest_point = *begin;
+    float shortest_dist = std::numeric_limits<float>::max();
     for (IteratorType it = begin; it != end; ++it) {
-      const Eigen::Vector3d& v = *it;
-      const double dist = (v - mean_).norm();
+      const Eigen::Vector3f& v = *it;
+      const float dist = (v - mean_).norm();
       if (dist < shortest_dist) {
         nearest_point = v;
         shortest_dist = dist;
@@ -88,9 +88,9 @@ inline void TreeNode3D<ContainerType_>::build(
       plane_predecessor = this;
   }
 
-  const Eigen::Vector3d& _split_plane_normal = eigenvectors_.col(2);
-  IteratorType middle = split(begin, end, [&](const Eigen::Vector3d& p) -> bool {
-    return (p - mean_).dot(_split_plane_normal) < double(0);
+  const Eigen::Vector3f& _split_plane_normal = eigenvectors_.col(2);
+  IteratorType middle = split(begin, end, [&](const Eigen::Vector3f& p) -> bool {
+    return (p - mean_).dot(_split_plane_normal) < float(0);
   });
 
   if (level >= max_parallel_level) {
@@ -149,8 +149,8 @@ template <typename ContainerType_>
 inline TreeNode3D<ContainerType_>* TreeNode3D<ContainerType_>::makeSubtree(
                                                                     const IteratorType begin,
                                                                     const IteratorType end,
-                                                                    const double bbox_threshold,
-                                                                    const double flatness_threshold,
+                                                                    const float bbox_threshold,
+                                                                    const float flatness_threshold,
                                                                     const int level,
                                                                     const int max_parallel_level,
                                                                     TreeNode3D* parent,
@@ -170,11 +170,11 @@ inline TreeNode3D<ContainerType_>* TreeNode3D<ContainerType_>::makeSubtree(
 
 template <typename ContainerType_>
 inline TreeNode3D<ContainerType_>*
-TreeNode3D<ContainerType_>::bestMatchingLeafFast(const Eigen::Vector3d& query) {
+TreeNode3D<ContainerType_>::bestMatchingLeafFast(const Eigen::Vector3f& query) {
   TreeNode3D* node = this;
   while (node->left_ || node->right_) {
-    const Eigen::Vector3d& _split_plane_normal = node->eigenvectors_.col(2);
-    node = ((query - node->mean_).dot(_split_plane_normal) < double(0)) ? node->left_
+    const Eigen::Vector3f& _split_plane_normal = node->eigenvectors_.col(2);
+    node = ((query - node->mean_).dot(_split_plane_normal) < float(0)) ? node->left_
                                                                              : node->right_;
   }
 
@@ -194,8 +194,8 @@ inline void TreeNode3D<ContainerType_>::getLeafs(std::back_insert_iterator<std::
 }
 
 template <typename ContainerType_>
-inline void TreeNode3D<ContainerType_>::applyTransform(const Eigen::Matrix3d& r,
-                                                       const Eigen::Vector3d& t) {
+inline void TreeNode3D<ContainerType_>::applyTransform(const Eigen::Matrix3f& r,
+                                                       const Eigen::Vector3f& t) {
   mean_ = r * mean_ + t;
   eigenvectors_ = r * eigenvectors_;
   if (left_)

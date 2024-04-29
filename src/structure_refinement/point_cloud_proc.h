@@ -62,11 +62,11 @@
 #include "surfel.h"
 #include "data_association.h"
 #include "utils.h"
-
+#include <Eigen/LU>
 
 namespace structure_refinement {
   using namespace srrg2_core;
-    using ContainerType = std::vector<Eigen::Vector3d>;
+    using ContainerType = std::vector<Eigen::Vector3f>;
       using TreeNodeType = TreeNode3D<ContainerType>;
       using TreeNodeTypePtr = TreeNodeType*;
 
@@ -82,7 +82,7 @@ namespace structure_refinement {
     void handleTFMessage(TransformEventsMessagePtr);                   // Handle the tf message
     bool createIntensityImage(srrg2_core::BaseSensorMessagePtr msg);  // Just for tests
     void publishCloudNormals(int);                                         // Publish normals for n-th set of point cloud / pose
-    void createKDTree(std::vector<Eigen::Vector3d> &cloud, const Eigen::Isometry3d &lastPose);  // Creates kd-trees from the vector of points
+    void createKDTree(std::vector<Eigen::Vector3f> &cloud, const Eigen::Isometry3f &lastPose);  // Creates kd-trees from the vector of points
     void visualizeSurfel(TreeNodeTypePtr, int);  // ToDo: rename for leafs
     void visializeAllSurfels();
     void visualizeSurfelPoses();
@@ -104,12 +104,12 @@ namespace structure_refinement {
     void optimizeFactorGraph(srrg2_solver::FactorGraphPtr &);
     void addNoiseToLastPose();
     void addSurfelFactors(const srrg2_solver::FactorGraphPtr &);
-    void addPosesToGraphBA(srrg2_solver::FactorGraphPtr &, std::vector<Eigen::Isometry3d>&);
+    void addPosesToGraphBA(srrg2_solver::FactorGraphPtr &, std::vector<Eigen::Isometry3f>&);
     void handleFactorGraph(std::vector<Surfelv2>& );
     void addSurfelsToGraph(srrg2_solver::FactorGraphPtr &, std::vector<Surfelv2> &);
-    std::vector<Eigen::Isometry3d> addSynthSurfelsToGraphBA(srrg2_solver::FactorGraphPtr&, std::vector<SynthSurfel> &); // Returns the GT Surfels poses
+    std::vector<Eigen::Isometry3f> addSynthSurfelsToGraphBA(srrg2_solver::FactorGraphPtr&, std::vector<SynthSurfel> &); // Returns the GT Surfels poses
 
-    void updateLeafsPosition(srrg2_solver::FactorGraphPtr&, std::vector<Eigen::Isometry3d>&);
+    void updateLeafsPosition(srrg2_solver::FactorGraphPtr&, std::vector<Eigen::Isometry3f>&);
     void updatePosesInGraph(srrg2_solver::FactorGraphPtr &);
     void updatePosesAndLeafsFromGraph(srrg2_solver::FactorGraphPtr &);
     void updateSurfelsMeanFromGraph(const srrg2_solver::FactorGraphPtr &graph, std::vector<Surfelv2> &surfelsv2);
@@ -129,16 +129,17 @@ namespace structure_refinement {
     // Point clouds
     std::vector<std::shared_ptr<Point3fVectorCloud>> pointClouds_;  // Subsequiential point clouds
 
-    using ContainerType = std::vector<Eigen::Vector3d>;
+    using ContainerType = std::vector<Eigen::Vector3f>;
     using TreeNodeType = TreeNode3D<ContainerType>;
     using TreeNodeTypePtr = TreeNodeType *;
     std::vector<std::vector<TreeNodeTypePtr>> kdTreeLeafes_;  // Leafes from the subsequential kd-trees - Index corresponds to pose index
-    std::vector<std::shared_ptr<TreeNodeType>> kdTrees_;      // Kd-trees created from subsequential point clouds - Index corresponds to pose index | Probably I don't need them
-    std::vector<Eigen::Isometry3d> poses_;
+    std::vector<std::unique_ptr<TreeNodeType>> kdTrees_;      // Kd-trees created from subsequential point clouds - Index corresponds to pose index | Probably I don't need them
+
+    std::vector<Eigen::Isometry3f> poses_;
     std::vector<ros::Time> posesTimestamps_;
 
-    std::vector<Eigen::Isometry3d> posesInGraph_;
-    std::vector<Eigen::Isometry3d> posesWithoutNoise_;
+    std::vector<Eigen::Isometry3f> posesInGraph_;
+    std::vector<Eigen::Isometry3f> posesWithoutNoise_;
 
     std::vector<std::shared_ptr<Surfel>> surfels_;          // Vector of all the surfels. Indexes do NOT correspond to anything else
     std::vector<sensor_msgs::PointCloud2> rosPointClouds_;  // Vector of point clouds for vizualization, as Rviz sometimes doesn't display them
@@ -159,6 +160,7 @@ namespace structure_refinement {
     rviz_visual_tools::RvizVisualToolsPtr visual_tools_;
     ros::ServiceClient clientRviz_;
     srrg2_core::Chrono::ChronoMap _timings;
+    bool visualizePointClouds_;
     };
 
   using PointCloudProcPtr = std::shared_ptr<PointCloudProc>;

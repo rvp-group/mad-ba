@@ -8,7 +8,7 @@
 #include <vector>
 
 namespace structure_refinement {
-using ContainerType = std::vector<Eigen::Vector3d>;
+using ContainerType = std::vector<Eigen::Vector3f>;
 using TreeNodeType = TreeNode3D<ContainerType>;
 using TreeNodeTypePtr = TreeNodeType*;
 

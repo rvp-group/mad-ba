@@ -38,7 +38,7 @@ void DataAssociation::associateDataKernelCPU(int numOfLeafs, int kdTreeAIdx, int
   }
 }
 
-void DataAssociation::prepareDataCPU(std::vector<std::shared_ptr<TreeNodeType>> &kdTrees, std::vector<std::vector<TreeNodeTypePtr>> &kdTreeLeafes) {
+void DataAssociation::prepareDataCPU(std::vector<std::unique_ptr<TreeNodeType>> &kdTrees, std::vector<std::vector<TreeNodeTypePtr>> &kdTreeLeafes) {
   std::cout << "PreparaceDataCPU" << std::endl;
 
   srrg2_core::Chrono::ChronoMap _timings;

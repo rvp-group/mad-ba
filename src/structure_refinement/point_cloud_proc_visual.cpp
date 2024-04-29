@@ -8,7 +8,7 @@ using LidarUnprojectorType = PointIntensity3fUnprojectorOS1_64;
 using NormalComputatorType = NormalComputator2DCrossProduct<PointNormal3fVectorCloud, 0>;  // NormalComputator2DCrossProduct<PointNormal3fMatrixCloud, 1>;
 
 void PointCloudProc::visializeAllSurfels() {
-  Eigen::Isometry3d surfelPose = Eigen::Isometry3d::Identity();
+  Eigen::Isometry3f surfelPose = Eigen::Isometry3f::Identity();
   uint8_t markerColor = 0;
   long surfelCnt = 0;
   int decimation = 10;
@@ -25,19 +25,19 @@ void PointCloudProc::visializeAllSurfels() {
       if (surfelCnt++ % decimation != 0)
         continue;
       // Set the translation part
-      surfelPose.translation() = Eigen::Vector3d(surfel->mean_);
+      surfelPose.translation() = Eigen::Vector3f(surfel->mean_);
       // Calculate the rotation matrix
-      Eigen::Matrix3d rotMatrix = matrixBetween2Vectors(Eigen::Vector3d(1, 0, 0), surfel->eigenvectors_.col(0));
+      Eigen::Matrix3f rotMatrix = matrixBetween2Vectors(Eigen::Vector3f(1, 0, 0), surfel->eigenvectors_.col(0));
       surfelPose.linear() = rotMatrix;
       // Publish normal as arrow
-      visual_tools_->publishArrow(surfelPose, static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::XXXLARGE);
+      visual_tools_->publishArrow(surfelPose.cast<double>(), static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::XXXLARGE);
     }
   }
   visual_tools_->trigger();
 }
 
 void PointCloudProc::visializeSurfelsv2(std::vector<Surfelv2>& surfelsv2) {
-  Eigen::Isometry3d surfelPose = Eigen::Isometry3d::Identity();
+  Eigen::Isometry3f surfelPose = Eigen::Isometry3f::Identity();
   uint8_t markerColor = 0;
   long leafCnt = 0;
   int surfelCnt = 0;
@@ -62,12 +62,12 @@ void PointCloudProc::visializeSurfelsv2(std::vector<Surfelv2>& surfelsv2) {
       //   continue;
 
       // Set the translation part
-      surfelPose.translation() = Eigen::Vector3d(leaf->mean_);
+      surfelPose.translation() = Eigen::Vector3f(leaf->mean_);
       // Calculate the rotation matrix
-      Eigen::Matrix3d rotMatrix = matrixBetween2Vectors(Eigen::Vector3d(1, 0, 0), leaf->eigenvectors_.col(0));
+      Eigen::Matrix3f rotMatrix = matrixBetween2Vectors(Eigen::Vector3f(1, 0, 0), leaf->eigenvectors_.col(0));
       surfelPose.linear() = rotMatrix;
       // Publish normal as arrow
-      visual_tools_->publishArrow(surfelPose, static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::XXXLARGE);
+      visual_tools_->publishArrow(surfelPose.cast<double>(), static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::XXXLARGE);
     }
   }
   visual_tools_->trigger();
@@ -86,14 +86,14 @@ void PointCloudProc::visualizeSurfelPoses() {
     poseArray.header.frame_id = "map";
 
     // Add all poses for given surfel
-    for (const Eigen::Isometry3d& pose : surfel->odomPoses_) {
+    for (const Eigen::Isometry3f& pose : surfel->odomPoses_) {
       // Create new pose Msg
       geometry_msgs::Pose poseMsg;
       poseMsg.position.x = pose.translation().x();
       poseMsg.position.y = pose.translation().y();
       poseMsg.position.z = pose.translation().z();
       // Add orientation
-      Eigen::Quaterniond quat(pose.linear());
+      Eigen::Quaternionf quat(pose.linear());
       poseMsg.orientation.x = quat.x();
       poseMsg.orientation.y = quat.y();
       poseMsg.orientation.z = quat.z();
@@ -128,14 +128,14 @@ void PointCloudProc::visualizeCorrespondingSurfelsV2WithPoses(std::vector<Surfel
 
   // for (unsigned int i = 0; i < surfelsv2.size(); i += decimation) {
   static int markerColor = 9;
-  for (int i = 0; i < surfelsToVisualize; i++) {
+  for (unsigned int i = 0; i < surfelsToVisualize; i++) {
     markerColor = ++markerColor % 14;
     for (auto const& leaf : surfelsv2.at(idxSorted[i]).leafs_) {
       static int visCnt = 0;
       visualizeSurfel(leaf, markerColor);
-      Eigen::Isometry3d trans = Eigen::Isometry3d::Identity();
+      Eigen::Isometry3f trans = Eigen::Isometry3f::Identity();
       trans = poses_.at(leaf->pointcloud_id_);
-      visual_tools_->publishLine(trans.translation(), leaf->mean_, static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::LARGE);
+      visual_tools_->publishLine(trans.translation().cast<double>(), leaf->mean_.cast<double>(), static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::LARGE);
       visual_tools_->trigger();
     }
   }
@@ -157,7 +157,7 @@ void PointCloudProc::visualizeCorrespondingSurfelsWithPoses() {
   poseArray.header.stamp = ros::Time::now();
   poseArray.header.frame_id = "map";
   for (unsigned int i = 0; i < surfels_.size(); i += decimation) {
-    //   for (const Eigen::Isometry3d& pose : surfels_.at(i)->poses_) {
+    //   for (const Eigen::Isometry3f& pose : surfels_.at(i)->poses_) {
     //       // Create new pose Msg
     //       geometry_msgs::Pose poseMsg;
     //       poseMsg.position.x = pose.translation().x();
@@ -189,14 +189,14 @@ void PointCloudProc::visualizeCorrespondingSurfelsWithPoses() {
           TreeNodeType* leaf = kdTreeLeafes_[poseId.first].at(surfelId);
           visualizeSurfel(leaf, markerColor % 14);
           // Add line between pose and surfel
-          // Eigen::Isometry3d trans = surfels_.at(i)->odomPoses_.at(poseId.first);
-          Eigen::Isometry3d trans = Eigen::Isometry3d::Identity();
+          // Eigen::Isometry3f trans = surfels_.at(i)->odomPoses_.at(poseId.first);
+          Eigen::Isometry3f trans = Eigen::Isometry3f::Identity();
           if (posesInGraph_.size() == 0)
             trans = poses_.at(poseId.first);
           else
             trans = posesInGraph_.at(poseId.first);
 
-          visual_tools_->publishLine(trans.translation(), leaf->mean_, static_cast<rviz_visual_tools::colors>(markerColor % 14), rviz_visual_tools::LARGE);
+          visual_tools_->publishLine(trans.translation().cast<double>(), leaf->mean_.cast<double>(), static_cast<rviz_visual_tools::colors>(markerColor % 14), rviz_visual_tools::LARGE);
           visual_tools_->trigger();
         }
       }
@@ -205,41 +205,41 @@ void PointCloudProc::visualizeCorrespondingSurfelsWithPoses() {
 }
 
 void PointCloudProc::visualizeSurfel(TreeNodeType* surfel, int markerColor) {
-  Eigen::Isometry3d surfelPose = Eigen::Isometry3d::Identity();
-  surfelPose.translation() = Eigen::Vector3d(surfel->mean_);
+  Eigen::Isometry3f surfelPose = Eigen::Isometry3f::Identity();
+  surfelPose.translation() = Eigen::Vector3f(surfel->mean_);
   // Works even for surfels that have only 1 point (they have only the first column of egigenvector matrix)
-  surfelPose.linear() = matrixBetween2Vectors(Eigen::Vector3d(1, 0, 0), surfel->eigenvectors_.col(0));
+  surfelPose.linear() = matrixBetween2Vectors(Eigen::Vector3f(1, 0, 0), surfel->eigenvectors_.col(0));
   // Get the surfel bounding box
-  Eigen::Vector3d bbox = surfel->bbox_;
+  Eigen::Vector3f bbox = surfel->bbox_;
   for (int i = 0; i < 3; i++)
     if (bbox[i] < 0.01)
       bbox[i] = 0.01;
 
   // Publish normal as Arrow
-  visual_tools_->publishArrow(surfelPose, static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::MEDIUM);
+  visual_tools_->publishArrow(surfelPose.cast<double>(), static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::MEDIUM);
 
   // Publish surfel as Cylinder
   // Get the rotation matrix for 90* in Y axis
-  Eigen::Matrix3d rotationY;
+  Eigen::Matrix3f rotationY;
   rotationY << 0, 0, 1, 0, 1, 0, -1, 0, 0;
   surfelPose.linear() = surfelPose.linear() * rotationY;
-  double radius = (bbox[1] + bbox[2]) / 2.0;
-  visual_tools_->publishCylinder(surfelPose, static_cast<rviz_visual_tools::colors>(markerColor), bbox[0], radius);
+  float radius = (bbox[1] + bbox[2]) / 2.0;
+  visual_tools_->publishCylinder(surfelPose.cast<double>(), static_cast<rviz_visual_tools::colors>(markerColor), bbox[0], radius);
 
   // Check if eigenvectors contains NaNs
   if (surfel->eigenvectors_ == surfel->eigenvectors_) {
-    Eigen::Vector3d deltaX = surfel->eigenvectors_.col(0) * bbox[0];
-    Eigen::Vector3d deltaY = surfel->eigenvectors_.col(1) * bbox[1];
-    Eigen::Vector3d deltaZ = surfel->eigenvectors_.col(2) * bbox[2];
+    // Eigen::Vector3f deltaX = surfel->eigenvectors_.col(0) * bbox[0];
+    // Eigen::Vector3f deltaY = surfel->eigenvectors_.col(1) * bbox[1];
+    // Eigen::Vector3f deltaZ = surfel->eigenvectors_.col(2) * bbox[2];
 
     // Publish the bound box diagonals
-    visual_tools_->publishLine(surfel->mean_ - deltaX / 2.0, surfel->mean_ + deltaX / 2.0, static_cast<rviz_visual_tools::colors>(markerColor % 14));
-    visual_tools_->publishLine(surfel->mean_ - deltaY / 2.0, surfel->mean_ + deltaY / 2.0, static_cast<rviz_visual_tools::colors>(markerColor % 14));
-    visual_tools_->publishLine(surfel->mean_ - deltaZ / 2.0, surfel->mean_ + deltaZ / 2.0, static_cast<rviz_visual_tools::colors>(markerColor % 14));
+    // visual_tools_->publishLine(surfel->mean_ - deltaX / 2.0, surfel->mean_ + deltaX / 2.0, static_cast<rviz_visual_tools::colors>(markerColor % 14));
+    // visual_tools_->publishLine(surfel->mean_ - deltaY / 2.0, surfel->mean_ + deltaY / 2.0, static_cast<rviz_visual_tools::colors>(markerColor % 14));
+    // visual_tools_->publishLine(surfel->mean_ - deltaZ / 2.0, surfel->mean_ + deltaZ / 2.0, static_cast<rviz_visual_tools::colors>(markerColor % 14));
 
     // Publish surfel as rectangle
     surfelPose.linear() = surfel->eigenvectors_ * rotationY;
-    visual_tools_->publishWireframeRectangle(surfelPose, bbox[1], bbox[2], static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::XLARGE);
+    visual_tools_->publishWireframeRectangle(surfelPose.cast<double>(), bbox[1], bbox[2], static_cast<rviz_visual_tools::colors>(markerColor), rviz_visual_tools::XLARGE);
   }
   visual_tools_->trigger();
 }
