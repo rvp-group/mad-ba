@@ -1,4 +1,6 @@
 #include "utils.h"
+#include <math.h>
+#include <Eigen/Core>
 
 namespace structure_refinement {
 

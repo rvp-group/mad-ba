@@ -1,6 +1,5 @@
 #pragma once
 
-#include <iterator>
 #include <Eigen/Core>
 
 namespace structure_refinement {

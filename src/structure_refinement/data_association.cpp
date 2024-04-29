@@ -1,4 +1,13 @@
 #include "data_association.h"
+#include <Eigen/src/Geometry/OrthoMethods.h>    
+#include <ext/alloc_traits.h>                   
+#include <math.h>                               
+#include <stdint.h>                             
+#include <iostream>                             
+#include "srrg_system_utils/chrono.h"           
+#include "structure_refinement/kdtree.hpp"      
+#include "structure_refinement/surfel_matches.h"
+#include "structure_refinement/surfelv2.h"      
 
 namespace structure_refinement {
 

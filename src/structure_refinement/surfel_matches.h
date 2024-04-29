@@ -7,8 +7,6 @@
 #include <memory>
 #include <vector>
 
-#include "kdtree.cuh"
-
 namespace structure_refinement {
 using ContainerType = std::vector<Eigen::Vector3d>;
 using TreeNodeType = TreeNode3D<ContainerType>;

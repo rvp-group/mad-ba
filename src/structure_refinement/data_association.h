@@ -1,18 +1,12 @@
 #pragma once
 
-#include <math.h>
-#include <omp.h>
-#include <srrg_system_utils/chrono.h>
-#include <stdio.h>
-
 #include <Eigen/Core>
-#include <iostream>
 #include <memory>
 #include <vector>
 
 #include "kdtree.cuh"
-#include "surfel_matches.h"
 #include "surfelv2.h"
+#include "structure_refinement/surfel_matches.h"
 
 namespace structure_refinement {
 using ContainerType = std::vector<Eigen::Vector3d>;
