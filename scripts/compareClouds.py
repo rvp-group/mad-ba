@@ -81,9 +81,9 @@ def evaluate_pointclouds(pc, pc_gt, pc_name, gt_name):
     print('\033[92m', "Source: GT | Target: User | Thresh: " + str(eval_thresh2) + " | Point-to-plane")
     print('\033[0m', str(evaluation).split("Access")[0])
 
-    source.transform(reg_p2l.transformation)
-    chamfer_dst = calculate_chamfer_distance(pc, pc_gt)
-    print('\033[94m' + " Chamfer distance: " + str(chamfer_dst))
+    # source.transform(reg_p2l.transformation)
+    # chamfer_dst = calculate_chamfer_distance(pc, pc_gt)
+    # print('\033[94m' + " Chamfer distance: " + str(chamfer_dst))
     print('\033[0m')
     
 
