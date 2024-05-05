@@ -127,7 +127,7 @@ namespace structure_refinement {
     size_t _seq = 0;
 
     // Point clouds
-    std::vector<std::shared_ptr<Point3fVectorCloud>> pointClouds_;  // Subsequiential point clouds
+    // std::vector<std::shared_ptr<Point3fVectorCloud>> pointClouds_;  // Subsequiential point clouds
 
     using ContainerType = std::vector<Eigen::Vector3f>;
     using TreeNodeType = TreeNode3D<ContainerType>;
