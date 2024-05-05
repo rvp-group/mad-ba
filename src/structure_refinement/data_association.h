@@ -21,6 +21,7 @@ class DataAssociation {
   void associateDataKernelCPU(int, int, int, TreeNodeTypePtr *, TreeNodeTypePtr *, SurfelMatches *);
   void prepareDataCPU(std::vector<std::unique_ptr<TreeNodeType>> &kdTrees, std::vector<std::vector<TreeNodeTypePtr>> &kdTreeLeafes);
   void processTheSurfelMatches(std::vector<SurfelMatches> &);
+  void filterSurfels();
   void resetSurfels();
   std::vector<Surfelv2> &getSurfels() { return surfels_; }
 

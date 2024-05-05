@@ -59,7 +59,7 @@ class Surfelv2 {
 
   //  protected:
   std::vector<TreeNodeTypePtr> leafs_;
-  const uint64_t id_;
+  uint64_t id_;
   Eigen::Vector3f meanEst_;
 };
 

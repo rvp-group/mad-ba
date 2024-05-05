@@ -65,6 +65,8 @@ namespace structure_refinement {
           {
             srrg2_core::Chrono chGP2("prepareData CPU", &_timings, false);
             dataAssociation.prepareDataCPU(kdTrees_, kdTreeLeafes_);
+            // Remove surfels with only 1-point leafs
+            dataAssociation.filterSurfels();
           }
 
           // Publish and save to file

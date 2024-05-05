@@ -107,6 +107,12 @@ void DataAssociation::processTheSurfelMatches(std::vector<SurfelMatches> &matche
   }
 }
 
+void DataAssociation::filterSurfels() {
+  surfels_.erase(std::remove_if(surfels_.begin(), surfels_.end(),
+                                [](const Surfelv2 &s) { return (s.getMaxRadius() == 0); }),
+                 surfels_.end());
+}
+
 void DataAssociation::resetSurfels() {
   surfels_.clear();
   Surfelv2::resetTheSurfelsCounter();  // Surfel's id is its position in a surfels_ vector, so it must be reset
