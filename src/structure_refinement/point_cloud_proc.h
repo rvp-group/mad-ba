@@ -43,6 +43,7 @@
 
 #include <ros/ros.h>
 #include <ros/package.h>
+#include <rosbag/bag.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/point_cloud2_iterator.h>
 #include <tf2_ros/transform_broadcaster.h>
@@ -63,6 +64,7 @@
 #include "data_association.h"
 #include "utils.h"
 #include <Eigen/LU>
+
 
 namespace structure_refinement {
   using namespace srrg2_core;
@@ -117,6 +119,7 @@ namespace structure_refinement {
     void rawOptimizeSurfels(std::vector<std::shared_ptr<Surfel>> &surfelsIn);
     void resetLeafsSurfelId();
     void savePosesToFile();
+    void createAndSaveScans(std::vector<Surfelv2>&);
 
    protected:
     using PointUnprojectorBase = srrg2_core::PointUnprojectorBase_<srrg2_core::PointNormalIntensity3fVectorCloud>;
@@ -161,6 +164,7 @@ namespace structure_refinement {
     ros::ServiceClient clientRviz_;
     srrg2_core::Chrono::ChronoMap _timings;
     bool visualizePointClouds_;
+    bool saveSurfelsScans_;
     };
 
   using PointCloudProcPtr = std::shared_ptr<PointCloudProc>;

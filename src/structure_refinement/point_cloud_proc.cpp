@@ -46,6 +46,8 @@ namespace structure_refinement {
       bool useSynthethicData = false;
       // Saves some RAM if false (4GB for ~2000 poses)
       visualizePointClouds_ = false; 
+      // Whether to save scans to output/scans
+      saveSurfelsScans_ = false
       // Skip first n messages and process only m first clouds
       int cloudsToSkip = 0;
       int decimateRealData = 1;
@@ -81,6 +83,8 @@ namespace structure_refinement {
           if (i == iterNum - 1) {
             publishPointSurfv2(dataAssociation.getSurfels());
             savePosesToFile();
+            if (saveSurfelsScans_)
+              createAndSaveScans(dataAssociation.getSurfels());
           }
 
           // Reset the leafs and surfels
@@ -1208,6 +1212,9 @@ void PointCloudProc::rawOptimizeSurfels(std::vector<std::shared_ptr<Surfel>> & s
       if (radius < 0.075)
         radius = 0.075;
       uint8_t r = 0, g = 255, b = 0, a = 255;
+      r = rand() % 255;
+      g = rand() % 255;
+      b = rand() % 255;
       pcl::PointSurfel ps;
       ps.x = t.x();
       ps.y = t.y();
@@ -1288,4 +1295,56 @@ void PointCloudProc::rawOptimizeSurfels(std::vector<std::shared_ptr<Surfel>> & s
     // }
   }
 
-  }  // namespace structure_refinement
+  void PointCloudProc::createAndSaveScans(std::vector<Surfelv2>& surfelsv2){
+
+    std::vector<pcl::PointCloud<pcl::PointSurfel>> psCloudsVec(poses_.size());
+
+    for (const Surfelv2& surfel : surfelsv2) {
+
+      // Iterate through all poses from which given surfel was registered
+      for (uint i = 0; i < surfel.leafs_.size(); i++) {
+        Eigen::Isometry3f poseInv = poses_.at(surfel.leafs_.at(i)->pointcloud_id_).inverse();
+        Eigen::Vector3f t = surfel.getMeanEst();
+        Eigen::Vector3f n = surfel.getNormal();
+        t = poseInv.linear() * t + poseInv.translation();
+        n = poseInv.linear() * n;
+        float radius = surfel.getMaxRadius();
+        if (radius < 0.075)
+          radius = 0.075;
+        uint8_t r = 255, g = 255, b = 255, a = 255;
+        pcl::PointSurfel ps;
+        ps.x = t.x();
+        ps.y = t.y();
+        ps.z = t.z();
+        ps.normal_x = n.x();
+        ps.normal_y = n.y();
+        ps.normal_z = n.z();
+        ps.radius = radius;
+        ps.r = r;
+        ps.g = g;
+        ps.b = b;
+        psCloudsVec.at(surfel.leafs_.at(i)->pointcloud_id_).push_back(ps);
+      }
+    }
+
+    // Save scans to file and bag
+    rosbag::Bag bag;
+    std::string path = ros::package::getPath("structure_refinement") + "/output/";
+    bag.open(path + "scans/bag/test.bag", rosbag::bagmode::Write);
+    int scanCnt = 0;
+    for (auto & psCloud: psCloudsVec){
+      if (psCloud.size() == 0)
+        continue;
+      pcl::io::savePLYFile(path + "scans/ply/surfelScan_" + std::to_string(scanCnt) + ".ply", psCloud);
+      pcl::io::savePCDFile(path + "scans/pcd/surfelScan_" + std::to_string(scanCnt) + ".pcd", psCloud);
+
+      sensor_msgs::PointCloud2 rosCloud;
+      pcl::toROSMsg(psCloud, rosCloud);
+      // Set the header
+      rosCloud.header.stamp = posesTimestamps_.at(scanCnt);
+      rosCloud.header.frame_id = "map";
+      bag.write("surfelScan", posesTimestamps_.at(scanCnt), rosCloud);
+      scanCnt++;
+    }
+  }
+}  // namespace structure_refinement
