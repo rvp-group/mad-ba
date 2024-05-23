@@ -92,7 +92,7 @@ namespace structure_refinement {
     void visualizeCorrespondingSurfelsV2WithPoses(std::vector<Surfelv2> &);
     void filterSurfels();
     void visializeSurfelsv2(std::vector<Surfelv2> &surfelsv2);
-    void publishPointSurfv2(std::vector<Surfelv2> &surfelsv2);
+    void publishSavePointSurfv2(std::vector<Surfelv2> &surfelsv2);
 
     int findLeafId(unsigned int, TreeNodeTypePtr);  // Find the id of a leaf in a given kdTree
     void generateSyntheticPointCloud(sensor_msgs::PointCloud2 &);
@@ -120,6 +120,8 @@ namespace structure_refinement {
     void resetLeafsSurfelId();
     void savePosesToFile();
     void createAndSaveScans(std::vector<Surfelv2>&);
+    void processOdomAndScans(srrg2_core::BaseSensorMessagePtr msg);
+    void processSequence();
 
    protected:
     using PointUnprojectorBase = srrg2_core::PointUnprojectorBase_<srrg2_core::PointNormalIntensity3fVectorCloud>;
@@ -163,8 +165,15 @@ namespace structure_refinement {
     rviz_visual_tools::RvizVisualToolsPtr visual_tools_;
     ros::ServiceClient clientRviz_;
     srrg2_core::Chrono::ChronoMap _timings;
+
+    // Parameters
     bool visualizePointClouds_;
     bool saveSurfelsScans_;
+    bool useSynthethicData_;
+    int iterNum_;
+    int decimateRealData_;
+    int cloudsToSkip_;
+    int cloudsToProcess_;
     };
 
   using PointCloudProcPtr = std::shared_ptr<PointCloudProc>;

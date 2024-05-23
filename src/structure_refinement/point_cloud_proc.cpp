@@ -34,131 +34,135 @@ namespace structure_refinement {
       staticBrd.sendTransform(static_transformStamped);
 
       clientRviz_ = nh_.serviceClient<rviz::SendFilePath>("/my_rviz/load_config_discarding_changes");
+
+      // Whether to use synthetic data
+      useSynthethicData_ = false;
+      // Saves some RAM if false (4GB for ~2000 poses)
+      visualizePointClouds_ = false; 
+      // Whether to save scans to output/scans
+      saveSurfelsScans_ = false;
+      // Skip first n messages and process only m first clouds
+      cloudsToSkip_ = 0;
+      // Parameter for decimating the messages
+      decimateRealData_ = 1;
+      // Number of poses to process
+      cloudsToProcess_ = 1990 * decimateRealData_;
+      // Number of optimization -> surfel recreations iterations
+      iterNum_ = 3;
   }
 
   PointCloudProc::~PointCloudProc()  {
   }
 
   bool PointCloudProc::putMessage(srrg2_core::BaseSensorMessagePtr msg) {
-      
       srrg2_core::Chrono ch1("putMessage", &_timings, false);
-      // Whether to use synthetic data
-      bool useSynthethicData = false;
-      // Saves some RAM if false (4GB for ~2000 poses)
-      visualizePointClouds_ = false; 
-      // Whether to save scans to output/scans
-      saveSurfelsScans_ = false
-      // Skip first n messages and process only m first clouds
-      int cloudsToSkip = 0;
-      int decimateRealData = 1;
-      int cloudsToProcess = 1990 * decimateRealData;
-      int iterNum = 3;
+      // Skip cloudsToSkip
       static int msgCnt = -1;
-      if (++msgCnt < 2 * cloudsToSkip) {
+      if (++msgCnt < 2 * cloudsToSkip_)
         return true;
+      // Process input data - odometry and scans
+      processOdomAndScans(msg);
+      // Call the main optimization function after all input data was preprocessed
+      if (msgCnt > 2 * (cloudsToSkip_ + cloudsToProcess_ -1)) {
+        processSequence();
       }
-      if (useSynthethicData) {
-          // Simulate pose, cloud, pose, cloud messages
-          static bool msgType = 0;
-          msgType ^= 1;
-          if (msgType) {
-              static int odomMsgCnt = 0;
-              std::cout << "Synthetic odometry msg no. " << odomMsgCnt++ << std::endl;
-              nav_msgs::OdometryPtr odomMsgSynthPtr(new nav_msgs::Odometry());
-              generateSyntheticOdometry(*odomMsgSynthPtr);
-              // Pointless but convert it to srrg odom, so that it can be processed the same way and converted back
-              OdometryMessagePtr odomSrrg = std::dynamic_pointer_cast<OdometryMessage>(Converter::convert(odomMsgSynthPtr));
-              handleOdometryMessage(odomSrrg);
-
-          } else {
-              static int cloudMsgCnt = 0;
-              std::cout << "Synthetic point cloud msg no. " << cloudMsgCnt++ << std::endl;
-              sensor_msgs::PointCloud2Ptr cloudMsgSynthPtr(new sensor_msgs::PointCloud2());
-              generateSyntheticPointCloud(*cloudMsgSynthPtr);
-              PointCloud2MessagePtr cloudSrrg = std::dynamic_pointer_cast<PointCloud2Message>(Converter::convert(cloudMsgSynthPtr));
-              addNoiseToLastPose();
-              handleCloudMessage(cloudSrrg);
-          }
-      } else {
-          // Let's assume that for each point cloud in a .bag file there is one odometry pose
-          // Try to convert the message to srrg2 point cloud
-          if (PointCloud2MessagePtr cloud = std::dynamic_pointer_cast<PointCloud2Message>(msg)) {
-              static int cloudMsgCnt = 0;
-              if (cloudMsgCnt++ % decimateRealData == 0) {
-                std::cout << std::setprecision(12) << "Point cloud message no." << cloudMsgCnt << " Ts: " << cloud->timestamp.value() << std::endl;
-                handleCloudMessage(cloud);
-              }
-          }
-          // Try to convert the message to srrg2 odometry
-          else if (OdometryMessagePtr odom = std::dynamic_pointer_cast<OdometryMessage>(msg)) {
-            static int odomMsgCnt = 0;
-            if (odomMsgCnt++ % decimateRealData == 0) {
-              std::cout << std::setprecision(12) << "Odometry message no." << odomMsgCnt << " Ts: " << odom->timestamp.value() << std::endl;
-              handleOdometryMessage(odom);
-              addNoiseToLastPose();
-            }
-          }
-          // Try to convert the message to tf message
-          else if (TransformEventsMessagePtr tfMsg = std::dynamic_pointer_cast<TransformEventsMessage>(msg)) {
-              static int tfMsgCnt = 0;
-              std::cout << std::setprecision(12) << "Transform message no." << tfMsgCnt++ << " Ts: " << tfMsg->timestamp.value() << std::endl;
-              // Disabled - now the TF transform is published in handleOdometryMessage() which makes it simpler to use synthethic data
-              // handleTFMessage(tfMsg);
-          }
-          // Other messages types
-          else {
-              std::cerr << "PointCloudProc::putMessage | no handler for the received message type " << std::endl;
-              return false;
-          }
-      }
-
-      if (msgCnt > 2 * (cloudsToSkip + cloudsToProcess) - 1) {
-        for (int i = 0; i < iterNum; i++) {
-          DataAssociation dataAssociation;
-          {
-            // srrg2_core::Chrono chGP("prepareData GPU", &_timings, false);
-            // dataAssociation.prepareData(kdTrees_, kdTreeLeafes_);
-          }
-
-          {
-            srrg2_core::Chrono chGP2("prepareData CPU", &_timings, false);
-            dataAssociation.prepareDataCPU(kdTrees_, kdTreeLeafes_);
-            // Remove surfels with only 1-point leafs
-            dataAssociation.filterSurfels();
-          }
-
-          // Publish and save to file
-          publishPointSurfv2(dataAssociation.getSurfels());
-          savePosesToFile();
-
-          handleFactorGraph(dataAssociation.getSurfels());
-          // visual_tools_->deleteAllMarkers();
-          // visualizeCorrespondingSurfelsV2WithPoses(dataAssociation.getSurfels());
-
-          // if last iteraton publish and save to file
-          if (i == iterNum - 1) {
-            publishPointSurfv2(dataAssociation.getSurfels());
-            savePosesToFile();
-            if (saveSurfelsScans_)
-              createAndSaveScans(dataAssociation.getSurfels());
-          }
-
-          // Reset the leafs and surfels
-          resetLeafsSurfelId();
-          dataAssociation.resetSurfels();
-        }
-
-
-        ros::Duration(1.0).sleep();
-        srrg2_core::Chrono::printReport(_timings);
-        exit(0);
-      }
-      
-
       return true;
   }
 
-  void PointCloudProc::savePosesToFile(){
+  void PointCloudProc::processSequence() {
+    for (int i = 0; i < iterNum_; i++) {
+      DataAssociation dataAssociation;
+      {
+        srrg2_core::Chrono ch2("prepareData CPU", &_timings, false);
+        dataAssociation.prepareDataCPU(kdTrees_, kdTreeLeafes_);
+        // Remove surfels with only 1-point leafs
+        dataAssociation.filterSurfels();
+      }
+
+      // Publish and save to file
+      publishSavePointSurfv2(dataAssociation.getSurfels());
+      savePosesToFile();
+
+      handleFactorGraph(dataAssociation.getSurfels());
+      // visual_tools_->deleteAllMarkers();
+      // visualizeCorrespondingSurfelsV2WithPoses(dataAssociation.getSurfels());
+
+      // if last iteraton publish and save to file
+      if (i == iterNum_ - 1) {
+        publishSavePointSurfv2(dataAssociation.getSurfels());
+        savePosesToFile();
+        if (saveSurfelsScans_)
+          createAndSaveScans(dataAssociation.getSurfels());
+      }
+
+      // Reset the leafs and surfels
+      resetLeafsSurfelId();
+      dataAssociation.resetSurfels();
+    }
+
+    ros::Duration(1.0).sleep();
+    srrg2_core::Chrono::printReport(_timings);
+    exit(0);
+  }
+
+  void PointCloudProc::processOdomAndScans(srrg2_core::BaseSensorMessagePtr msg) {
+    if (useSynthethicData_) {
+      // Simulate pose, cloud, pose, cloud messages
+      static bool msgType = 0;
+      msgType ^= 1;
+      if (msgType) {
+        static int odomMsgCnt = 0;
+        std::cout << "Synthetic odometry msg no. " << odomMsgCnt++ << std::endl;
+        nav_msgs::OdometryPtr odomMsgSynthPtr(new nav_msgs::Odometry());
+        generateSyntheticOdometry(*odomMsgSynthPtr);
+        // Pointless but convert it to srrg odom, so that it can be processed the same way and converted back
+        OdometryMessagePtr odomSrrg = std::dynamic_pointer_cast<OdometryMessage>(Converter::convert(odomMsgSynthPtr));
+        handleOdometryMessage(odomSrrg);
+
+      } else {
+        static int cloudMsgCnt = 0;
+        std::cout << "Synthetic point cloud msg no. " << cloudMsgCnt++ << std::endl;
+        sensor_msgs::PointCloud2Ptr cloudMsgSynthPtr(new sensor_msgs::PointCloud2());
+        generateSyntheticPointCloud(*cloudMsgSynthPtr);
+        PointCloud2MessagePtr cloudSrrg = std::dynamic_pointer_cast<PointCloud2Message>(Converter::convert(cloudMsgSynthPtr));
+        addNoiseToLastPose();
+        handleCloudMessage(cloudSrrg);
+      }
+    } else {
+      // Let's assume that for each point cloud in a .bag file there is one odometry pose
+      // Try to convert the message to srrg2 point cloud
+      if (PointCloud2MessagePtr cloud = std::dynamic_pointer_cast<PointCloud2Message>(msg)) {
+        static int cloudMsgCnt = 0;
+        if (cloudMsgCnt++ % decimateRealData_ == 0) {
+          std::cout << std::setprecision(12) << "Point cloud message no." << cloudMsgCnt << " Ts: " << cloud->timestamp.value() << std::endl;
+          handleCloudMessage(cloud);
+        }
+      }
+      // Try to convert the message to srrg2 odometry
+      else if (OdometryMessagePtr odom = std::dynamic_pointer_cast<OdometryMessage>(msg)) {
+        static int odomMsgCnt = 0;
+        if (odomMsgCnt++ % decimateRealData_ == 0) {
+          std::cout << std::setprecision(12) << "Odometry message no." << odomMsgCnt << " Ts: " << odom->timestamp.value() << std::endl;
+          handleOdometryMessage(odom);
+          addNoiseToLastPose();
+        }
+      }
+      // Try to convert the message to tf message
+      else if (TransformEventsMessagePtr tfMsg = std::dynamic_pointer_cast<TransformEventsMessage>(msg)) {
+        static int tfMsgCnt = 0;
+        std::cout << std::setprecision(12) << "Transform message no." << tfMsgCnt++ << " Ts: " << tfMsg->timestamp.value() << std::endl;
+        // Disabled - now the TF transform is published in handleOdometryMessage() which makes it simpler to use synthethic data
+        // handleTFMessage(tfMsg);
+      }
+      // Other messages types
+      else {
+        std::cerr << "PointCloudProc::putMessage | no handler for the received message type " << std::endl;
+        // return false;
+      }
+    }
+  }
+
+  void PointCloudProc::savePosesToFile() {
     static std::string path = ros::package::getPath("structure_refinement") + "/output/tum/";
     static int cnt = 0;
     std::string filename = "optimized_trajectory_" + std::to_string(cnt++) +  ".tum";
@@ -173,7 +177,7 @@ namespace structure_refinement {
     }
     file.close();
   }
- 
+
   void PointCloudProc::filterSurfels()
   {
     std::sort(surfels_.begin(), surfels_.end(), [](const std::shared_ptr<Surfel>& a, const std::shared_ptr<Surfel>& b) {
@@ -1204,7 +1208,7 @@ void PointCloudProc::rawOptimizeSurfels(std::vector<std::shared_ptr<Surfel>> & s
     }
   }
 
-  void PointCloudProc::publishPointSurfv2(std::vector<Surfelv2>& surfelsv2) {
+  void PointCloudProc::publishSavePointSurfv2(std::vector<Surfelv2>& surfelsv2) {
      
     pcl::PointSurfel ps;
     pcl::PointCloud<pcl::PointSurfel> psCloud;
