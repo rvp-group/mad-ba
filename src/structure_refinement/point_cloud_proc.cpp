@@ -46,7 +46,7 @@ namespace structure_refinement {
       // Parameter for decimating the messages
       decimateRealData_ = 1;
       // Number of poses to process
-      cloudsToProcess_ = 1990 * decimateRealData_;
+      cloudsToProcess_ = 1991 * decimateRealData_;
       // Number of optimization -> surfel recreations iterations
       iterNum_ = 3;
   }
