@@ -56,46 +56,6 @@ namespace structure_refinement {
       static int msgCnt = -1;
       if (++msgCnt < 2 * cloudsToSkip) {
         return true;
-      } else if (msgCnt > 2 * (cloudsToSkip + cloudsToProcess) - 2) {
-        for (int i = 0; i < iterNum; i++) {
-          DataAssociation dataAssociation;
-          {
-            // srrg2_core::Chrono chGP("prepareData GPU", &_timings, false);
-            // dataAssociation.prepareData(kdTrees_, kdTreeLeafes_);
-          }
-
-          {
-            srrg2_core::Chrono chGP2("prepareData CPU", &_timings, false);
-            dataAssociation.prepareDataCPU(kdTrees_, kdTreeLeafes_);
-            // Remove surfels with only 1-point leafs
-            dataAssociation.filterSurfels();
-          }
-
-          // Publish and save to file
-          publishPointSurfv2(dataAssociation.getSurfels());
-          savePosesToFile();
-
-          handleFactorGraph(dataAssociation.getSurfels());
-          // visual_tools_->deleteAllMarkers();
-          // visualizeCorrespondingSurfelsV2WithPoses(dataAssociation.getSurfels());
-
-          // if last iteraton publish and save to file
-          if (i == iterNum - 1) {
-            publishPointSurfv2(dataAssociation.getSurfels());
-            savePosesToFile();
-            if (saveSurfelsScans_)
-              createAndSaveScans(dataAssociation.getSurfels());
-          }
-
-          // Reset the leafs and surfels
-          resetLeafsSurfelId();
-          dataAssociation.resetSurfels();
-        }
-
-
-        ros::Duration(1.0).sleep();
-        srrg2_core::Chrono::printReport(_timings);
-        exit(0);
       }
       if (useSynthethicData) {
           // Simulate pose, cloud, pose, cloud messages
@@ -151,6 +111,49 @@ namespace structure_refinement {
               return false;
           }
       }
+
+      if (msgCnt > 2 * (cloudsToSkip + cloudsToProcess) - 1) {
+        for (int i = 0; i < iterNum; i++) {
+          DataAssociation dataAssociation;
+          {
+            // srrg2_core::Chrono chGP("prepareData GPU", &_timings, false);
+            // dataAssociation.prepareData(kdTrees_, kdTreeLeafes_);
+          }
+
+          {
+            srrg2_core::Chrono chGP2("prepareData CPU", &_timings, false);
+            dataAssociation.prepareDataCPU(kdTrees_, kdTreeLeafes_);
+            // Remove surfels with only 1-point leafs
+            dataAssociation.filterSurfels();
+          }
+
+          // Publish and save to file
+          publishPointSurfv2(dataAssociation.getSurfels());
+          savePosesToFile();
+
+          handleFactorGraph(dataAssociation.getSurfels());
+          // visual_tools_->deleteAllMarkers();
+          // visualizeCorrespondingSurfelsV2WithPoses(dataAssociation.getSurfels());
+
+          // if last iteraton publish and save to file
+          if (i == iterNum - 1) {
+            publishPointSurfv2(dataAssociation.getSurfels());
+            savePosesToFile();
+            if (saveSurfelsScans_)
+              createAndSaveScans(dataAssociation.getSurfels());
+          }
+
+          // Reset the leafs and surfels
+          resetLeafsSurfelId();
+          dataAssociation.resetSurfels();
+        }
+
+
+        ros::Duration(1.0).sleep();
+        srrg2_core::Chrono::printReport(_timings);
+        exit(0);
+      }
+      
 
       return true;
   }
