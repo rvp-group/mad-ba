@@ -14,52 +14,57 @@ import math
 from tqdm import tqdm
 
 # User parameters
-bag_file_path_ = './2021-07-01-10-37-38-quad-easy.bag'
-tum_file_path_ = '../gt/tum/ba_estimate.txt'
-lidar_topic_name = '/os_cloud_node/points'
-odom_time_offset_ = 0.01
-# Parameters for added topic
-odom_topic_name_ = "/ba_estimate"
-frame_id_ = "map"
-child_frame_id_ = "ba_estimate"
+bag_file_path = './bag/2021-07-01-10-37-38-quad-easy.bag'
+tum_file_path = './init_tum/loam_opensource.txt'
+odom_time_offset = 0.01
+# User parameters for added topic
+topic_name = "/loam_opensource"
+frame_id = "map"
+child_frame_id = "loam_opensource"
 
 def reorder_timestamps(rosbag_file_path):
     try:
         bag = rosbag.Bag(rosbag_file_path, "r")
     except rosbag.bag.ROSBagException as e:
+        print(e)
         if e.value == "empty file":
-            return
+            return False
         else:
-            return
+            return False
     except Exception as e:
-        return
-    
+        print(e)
+        return False
+
     with rosbag.Bag(rosbag_file_path + ".out", 'w', 'lz4') as outbag:
         for topic, msg, t in tqdm(bag.read_messages()):
-            if topic != lidar_topic_name:
-                continue
+            if topic == "/tf" and msg.transforms:
+                outbag.write(topic, msg, msg.transforms[0].header.stamp)
             else:
                 outbag.write(topic, msg, msg.header.stamp if msg._has_header else t)
+    return True
 
 def add_odom_topic(rosbag_file_path, tum_file_path, topic_name, frame_id, child_frame_id, odom_time_offset):
 
+    print('Adding odometry from {} to {} on topic {}'.format(tum_file_path, rosbag_file_path, topic_name))
    # Try to open the bag file
     try:
         bag = rosbag.Bag(rosbag_file_path, "r")
         messages_num = bag.get_message_count()
     except rosbag.bag.ROSBagException as e:
+        print(e)
         if e.value == "empty file":
             messages_num = 0
         else:
             return
     except Exception as e:
+        print(e)
         return
 
     if messages_num > 0:
         bag = rosbag.Bag(rosbag_file_path, "a")
     else:
         bag = rosbag.Bag(rosbag_file_path, "w")
-    
+
     # Try to read odom file
     with open(tum_file_path) as fp:
         lines = fp.read().splitlines()
@@ -100,8 +105,7 @@ def add_odom_topic(rosbag_file_path, tum_file_path, topic_name, frame_id, child_
 if __name__ == "__main__":
 
     # Reorder messages - creates new .bag.out file
-    reorder_timestamps(bag_file_path_)
-    bag_file_path_ = bag_file_path_ + ".out"
-    # Add odom topic
-    add_odom_topic(bag_file_path_, tum_file_path_, odom_topic_name_, frame_id_, child_frame_id_, odom_time_offset_)
-
+    if reorder_timestamps(bag_file_path):
+        bag_file_path = bag_file_path + ".out"
+        # Add odom topic
+        add_odom_topic(bag_file_path, tum_file_path, topic_name, frame_id, child_frame_id, odom_time_offset)
