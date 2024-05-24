@@ -29,3 +29,11 @@ $ ./run_and_eval.sh
     - `pcd`/`ply` - contains the subsequent optimization iterations of a map in
     - `tum` - contains the optimized trajectory
     - `scans` - contains scans recreated based on optimized map 
+
+
+## Preparing initial trajectory
+#### Steps:
+- Clone `loam-opensource`, `rosbag_player`, and `localize_main`
+- Edit `loam_opensource_rosbag_player.launch` to set *.bag*paths etc
+- Use ```$ roslaunch localize_mainloam_opensource_rosbag_player.launch```
+- Trajectory must have the following coordinate frame: X - forward, Y - left, Z - Up
