@@ -625,39 +625,27 @@ namespace structure_refinement {
       srrg2_core::Chrono chGP2("Adding poses to graph", &_timings, false);
       addPosesToGraphBA(graph, poses_);
     }
-
-      publishTFFromGraph(graph);
+    publishTFFromGraph(graph);
     if (visualizePointClouds_){
       publishPointClouds();
       publishTFFromGraph(graph);
     }
-
     // Add surfels
     {
       srrg2_core::Chrono chGP2("Adding surfels to graph", &_timings, false);
       addSurfelsToGraph(graph, surfelsv2);
     }
-    // visual_tools_->deleteAllMarkers();
-
-    // publishSurfFromGraph(graph);
-
-
     // Optimize the graph
     {
       srrg2_core::Chrono chGP2("Optimizing the graph", &_timings, false);
       optimizeFactorGraph(graph);
     }
-
-
+    // Update for next iteration
     updateSurfelsMeanFromGraph(graph, surfelsv2);
     // Update poses and kd-tree leafs
     updatePosesAndLeafsFromGraph(graph);
 
     // rawOptimizeSurfels(surfels_);
-
-    // Update for next iteration
-    // updatePosesInGraph(graph);
-    // ros::Duration(10.0).sleep();
 
     // Visualize point clouds
     publishTFFromGraph(graph);
@@ -665,9 +653,6 @@ namespace structure_refinement {
       publishPointClouds();
       publishTFFromGraph(graph);
     }
-    // Visualize surfels
-    // visual_tools_->deleteAllMarkers();
-    // publishSurfFromGraph(graph);
     graph->clear();
   }
 
