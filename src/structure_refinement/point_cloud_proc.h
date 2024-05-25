@@ -117,6 +117,7 @@ namespace structure_refinement {
     void updateSurfelsMeanFromGraph(const srrg2_solver::FactorGraphPtr &graph, std::vector<Surfelv2> &surfelsv2);
     void rawOptimizeSynthSurfels(const std::vector<SynthSurfel> &surfelsIn, std::vector<SynthSurfel> &surfelsOut);
     void rawOptimizeSurfels(std::vector<std::shared_ptr<Surfel>> &surfelsIn);
+    void rawOptimizeSurfelsv2(std::vector<Surfelv2>& surfelsv2);
     void resetLeafsSurfelId();
     void savePosesToFile();
     void createAndSaveScans(std::vector<Surfelv2>&);
@@ -170,7 +171,9 @@ namespace structure_refinement {
     bool visualizePointClouds_;
     bool saveSurfelsScans_;
     bool useSynthethicData_;
+    bool useRawSurfelOptimization_;
     int iterNum_;
+    int rawIterNum_;
     int decimateRealData_;
     int cloudsToSkip_;
     int cloudsToProcess_;

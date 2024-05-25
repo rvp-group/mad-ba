@@ -37,6 +37,8 @@ namespace structure_refinement {
 
       // Whether to use synthetic data
       useSynthethicData_ = false;
+      // Whether to optimze the surfel using solver or raw method
+      useRawSurfelOptimization_ = true;
       // Saves some RAM if false (4GB for ~2000 poses)
       visualizePointClouds_ = false; 
       // Whether to save scans to output/scans
@@ -49,6 +51,9 @@ namespace structure_refinement {
       cloudsToProcess_ = 1991 * decimateRealData_;
       // Number of optimization -> surfel recreations iterations
       iterNum_ = 3;
+      // Number of internal iterations when using rawSurfelOptimization
+      rawIterNum_ = 3;
+
   }
 
   PointCloudProc::~PointCloudProc()  {
@@ -81,9 +86,22 @@ namespace structure_refinement {
 
       // Publish and save to file
       publishSavePointSurfv2(dataAssociation.getSurfels());
-      savePosesToFile();
 
-      handleFactorGraph(dataAssociation.getSurfels());
+      if (useRawSurfelOptimization_){
+        for (int j=0; j < rawIterNum_; j++)
+        {
+          savePosesToFile();
+          std::cout << "Raw optimization of surfels" << std::endl;
+          rawOptimizeSurfelsv2(dataAssociation.getSurfels());
+          std::cout << "Graph optimization of poses" << std::endl;
+          handleFactorGraph(dataAssociation.getSurfels());
+        }
+      }
+      else{
+        savePosesToFile();
+        handleFactorGraph(dataAssociation.getSurfels());
+
+      }
       // visual_tools_->deleteAllMarkers();
       // visualizeCorrespondingSurfelsV2WithPoses(dataAssociation.getSurfels());
 
@@ -165,7 +183,15 @@ namespace structure_refinement {
   void PointCloudProc::savePosesToFile() {
     static std::string path = ros::package::getPath("structure_refinement") + "/output/tum/";
     static int cnt = 0;
-    std::string filename = "optimized_trajectory_" + std::to_string(cnt++) +  ".tum";
+    std::string filename;
+    if (useRawSurfelOptimization_) {
+      filename = "optimized_trajectory_" + std::to_string(cnt / rawIterNum_) + ".tum";
+      if (cnt % rawIterNum_ != 0)
+        filename += "." + std::to_string(cnt % rawIterNum_);
+    } else
+      filename = "optimized_trajectory_" + std::to_string(cnt) + ".tum";
+    cnt++;
+
     std::fstream file;
     file.open(path + filename, std::fstream::out);  // Creates empty file
     for (int i = 0; i < poses_.size(); i++) {
@@ -641,11 +667,10 @@ namespace structure_refinement {
       optimizeFactorGraph(graph);
     }
     // Update for next iteration
-    updateSurfelsMeanFromGraph(graph, surfelsv2);
+    if (useRawSurfelOptimization_ == false)
+      updateSurfelsMeanFromGraph(graph, surfelsv2);
     // Update poses and kd-tree leafs
     updatePosesAndLeafsFromGraph(graph);
-
-    // rawOptimizeSurfels(surfels_);
 
     // Visualize point clouds
     publishTFFromGraph(graph);
@@ -810,7 +835,8 @@ void PointCloudProc::addSurfelsToGraph(srrg2_solver::FactorGraphPtr& graph, std:
       surfelVar->setEstimate(surfelPose.cast<float>());
 
       // std::cout << "SurfelPose before optim: " << std::endl << surfelVar->estimate().matrix() << std::endl;
-      // surfelVar->setStatus(srrg2_solver::VariableBase::Status::Fixed);
+      if (useRawSurfelOptimization_)
+        surfelVar->setStatus(srrg2_solver::VariableBase::Status::Fixed);
 
       graph->addVariable(surfelVar);
 
@@ -949,6 +975,37 @@ void PointCloudProc::rawOptimizeSurfels(std::vector<std::shared_ptr<Surfel>> & s
     s->estPosition_ += dx * s->estNormal_;
   }
 
+}
+
+void PointCloudProc::rawOptimizeSurfelsv2(std::vector<Surfelv2>& surfelsv2){ //}, std::vector<SynthSurfel> & surfelsOut){
+
+  srrg2_core::Chrono ch1("rawOptimizeSurfels: ", &_timings, false);
+
+  // Iterate through all surfels
+  for (Surfelv2& surfel : surfelsv2) {
+    float A = 0;
+    float b = 0;
+
+    // Surfel already has meanestimate set to first observation
+    // Normal is not updated and is also set to first observation
+    // Surfel measurement must be in global frame, leafs are already in global frame, so they can be used directly
+    for (uint i = 0; i < surfel.leafs_.size(); i++) {
+      Eigen::Vector3f measPos = surfel.leafs_.at(i)->mean_;
+      //   Eigen::Vector3f measNorm = surfel.leafs_.at(i)->eigenvectors_.col(0);
+      float e = surfel.getNormal().dot(surfel.getMeanEst() - measPos);
+      A += 1;
+      b += 1 * e;
+    }
+    float dx = -b / A;
+    surfel.setMeanEst(surfel.getMeanEst() + dx * surfel.getNormal());
+  }
+
+//   // Calculate angle inclination
+//   Eigen::Vector3f surfNormal = surfel.leafs_.at(0)->eigenvectors_.col(0).cast<float>();
+//   float cosa = surfNormal.dot(surfInPose.translation()) / (surfNormal.norm() * surfInPose.translation().norm());
+//   // Set information matrix
+//   Eigen::Matrix<float, 1, 1> infMat = Eigen::Matrix<float, 1, 1>::Identity();
+//   infMat *= abs(cosa);
 }
 
  void PointCloudProc::optimizeFactorGraph(srrg2_solver::FactorGraphPtr &graph){

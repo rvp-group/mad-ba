@@ -32,8 +32,14 @@ $ ./run_and_eval.sh
 
 
 ## Preparing initial trajectory
-#### Steps:
+### Steps:
 - Clone `loam-opensource`, `rosbag_player`, and `localize_main`
 - Edit `loam_opensource_rosbag_player.launch` to set *.bag*paths etc
 - Use ```$ roslaunch localize_mainloam_opensource_rosbag_player.launch```
 - Trajectory must have the following coordinate frame: X - forward, Y - left, Z - Up
+
+### Parameters
+
+- `useRawSurfelOptimization_ = true` - optimizes surfels without solver; converges after 4-6 iterations (with `rawIterNum_=1`) instead of 3 but uses less RAM memory. Tested without noise and on 100 poses only.
+- with `rawIterNum_=3` it converges after 3 outer iterations, or even slightly faster; setting it `rawIterNum_>3` do not give anything, sometimes it gets worse
+- the same results are with added noise: `rawIterNum_=3` and `iterNum_=3` gives the best results, at least for tested 100 poses
