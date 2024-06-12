@@ -25,8 +25,12 @@ class Surfelv2 {
     meanEst_ = mean;
   }
 
+  void setNormalEst(const Eigen::Vector3f &normal) {
+    normalEst_ = normal;
+  }
+
   Eigen::Vector3f getMeanEst() const { return meanEst_; }
-  Eigen::Vector3f getNormal() const { return leafs_[0]->eigenvectors_.col(0).cast<float>(); }
+  Eigen::Vector3f getNormalEst() const { return normalEst_; }
 
   static void resetTheSurfelsCounter() {
     counter_ = 0;
@@ -61,6 +65,7 @@ class Surfelv2 {
   std::vector<TreeNodeTypePtr> leafs_;
   uint64_t id_;
   Eigen::Vector3f meanEst_;
+  Eigen::Vector3f normalEst_;
 };
 
 }  // namespace structure_refinement

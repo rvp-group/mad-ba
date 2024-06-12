@@ -818,8 +818,9 @@ void PointCloudProc::addSurfelsToGraph(srrg2_solver::FactorGraphPtr& graph, std:
     int64_t lastGraphId = poses_.size() - 1;
 
     // Iterate through all surfels
-    for (const Surfelv2 & surfel : surfelsv2) {
-
+    // for (const Surfelv2 & surfel : surfelsv2) {
+    for (uint j = 0; j < surfelsv2.size(); j += 1) {
+      const Surfelv2& surfel = surfelsv2.at(j);
       // Set containing ids of odom poses
       // Create multiple subsurfel variables for each odomPoses_
       auto surfelVar = std::make_shared<srrg2_solver::VariableSurfelAD1D>();
@@ -986,18 +987,32 @@ void PointCloudProc::rawOptimizeSurfelsv2(std::vector<Surfelv2>& surfelsv2){ //}
     float A = 0;
     float b = 0;
 
-    // Surfel already has meanestimate set to first observation
-    // Normal is not updated and is also set to first observation
+    // Surfel already has mean estimate set to first observation - changed to mean value
+    // Normal is not updated and is also set to first observation - changed to mean value
     // Surfel measurement must be in global frame, leafs are already in global frame, so they can be used directly
+    // Update surfel position and normal using all surfels
+    Eigen::Vector3f meanAvg = Eigen::Vector3f::Identity();
+    Eigen::Vector3f normalAvg = Eigen::Vector3f::Identity();
+    for (uint i = 0; i < surfel.leafs_.size(); i++) {
+        meanAvg += surfel.leafs_.at(i)->mean_;
+        normalAvg += surfel.leafs_.at(i)->eigenvectors_.col(0);
+    }
+    meanAvg /= surfel.leafs_.size();
+    normalAvg /= surfel.leafs_.size();
+    normalAvg.normalize();
+    surfel.setMeanEst(meanAvg);
+    surfel.setNormalEst(normalAvg);
+    
     for (uint i = 0; i < surfel.leafs_.size(); i++) {
       Eigen::Vector3f measPos = surfel.leafs_.at(i)->mean_;
-      //   Eigen::Vector3f measNorm = surfel.leafs_.at(i)->eigenvectors_.col(0);
-      float e = surfel.getNormal().dot(surfel.getMeanEst() - measPos);
+      float e = surfel.getNormalEst().dot(surfel.getMeanEst() - measPos);
       A += 1;
       b += 1 * e;
     }
+    // float lambda = 10;
+    // float dx = -b / (A + lambda * surfel.leafs_.size());
     float dx = -b / A;
-    surfel.setMeanEst(surfel.getMeanEst() + dx * surfel.getNormal());
+    surfel.setMeanEst(surfel.getMeanEst() + dx * surfel.getNormalEst());
   }
 
 //   // Calculate angle inclination
@@ -1256,7 +1271,7 @@ void PointCloudProc::rawOptimizeSurfelsv2(std::vector<Surfelv2>& surfelsv2){ //}
     pcl::PointCloud<pcl::PointSurfel> psCloud;
     for (const Surfelv2 & surfel: surfelsv2){
       Eigen::Vector3f t = surfel.getMeanEst();
-      Eigen::Vector3f n = surfel.getNormal();
+      Eigen::Vector3f n = surfel.getNormalEst();
       float radius = surfel.getMaxRadius();
       if (radius < 0.075)
         radius = 0.075;
@@ -1354,7 +1369,7 @@ void PointCloudProc::rawOptimizeSurfelsv2(std::vector<Surfelv2>& surfelsv2){ //}
       for (uint i = 0; i < surfel.leafs_.size(); i++) {
         Eigen::Isometry3f poseInv = poses_.at(surfel.leafs_.at(i)->pointcloud_id_).inverse();
         Eigen::Vector3f t = surfel.getMeanEst();
-        Eigen::Vector3f n = surfel.getNormal();
+        Eigen::Vector3f n = surfel.getNormalEst();
         t = poseInv.linear() * t + poseInv.translation();
         n = poseInv.linear() * n;
         float radius = surfel.getMaxRadius();
