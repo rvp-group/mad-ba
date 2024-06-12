@@ -109,6 +109,7 @@ namespace structure_refinement {
     void addPosesToGraphBA(srrg2_solver::FactorGraphPtr &, std::vector<Eigen::Isometry3f>&);
     void handleFactorGraph(std::vector<Surfelv2>& );
     void addSurfelsToGraph(srrg2_solver::FactorGraphPtr &, std::vector<Surfelv2> &);
+    void averageSurfels(std::vector<Surfelv2>&);
     std::vector<Eigen::Isometry3f> addSynthSurfelsToGraphBA(srrg2_solver::FactorGraphPtr&, std::vector<SynthSurfel> &); // Returns the GT Surfels poses
 
     void updateLeafsPosition(srrg2_solver::FactorGraphPtr&, std::vector<Eigen::Isometry3f>&);

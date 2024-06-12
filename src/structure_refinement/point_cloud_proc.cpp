@@ -92,6 +92,7 @@ namespace structure_refinement {
         {
           savePosesToFile();
           std::cout << "Raw optimization of surfels" << std::endl;
+          // This should be called only once as it gives the same results all the time
           rawOptimizeSurfelsv2(dataAssociation.getSurfels());
           std::cout << "Graph optimization of poses" << std::endl;
           handleFactorGraph(dataAssociation.getSurfels());
@@ -659,6 +660,7 @@ namespace structure_refinement {
     // Add surfels
     {
       srrg2_core::Chrono chGP2("Adding surfels to graph", &_timings, false);
+      averageSurfels(surfelsv2);
       addSurfelsToGraph(graph, surfelsv2);
     }
     // Optimize the graph
@@ -811,6 +813,11 @@ std::vector<Eigen::Isometry3f> PointCloudProc::addSynthSurfelsToGraphBA(srrg2_so
   return surfelGTVector;
 }
 
+void PointCloudProc::averageSurfels(std::vector<Surfelv2>& surfelsv2) {
+  // Average the surfel mean and position
+  for (Surfelv2 & surfel : surfelsv2)
+    surfel.averageMeanAndNormal();
+}
 
 void PointCloudProc::addSurfelsToGraph(srrg2_solver::FactorGraphPtr& graph, std::vector<Surfelv2>& surfelsv2){
 
@@ -829,10 +836,8 @@ void PointCloudProc::addSurfelsToGraph(srrg2_solver::FactorGraphPtr& graph, std:
       // Set initial estimate
       // ToDo: Average all the observed surfels
       Eigen::Isometry3f surfelPose = Eigen::Isometry3f::Identity();
-      Eigen::Isometry3f rotationY = Eigen::Isometry3f::Identity();
-      rotationY.linear() << 0, 0, 1, 0, 1, 0, -1, 0, 0;
-      surfelPose.translation() = surfel.leafs_.at(0)->mean_;
-      surfelPose.linear() = matrixBetween2Vectors(Eigen::Vector3f(0, 0, 1), surfel.leafs_.at(0)->eigenvectors_.col(0));
+      surfelPose.translation() = surfel.getMeanEst();
+      surfelPose.linear() = matrixBetween2Vectors(Eigen::Vector3f(0, 0, 1), surfel.getNormalEst());
       surfelVar->setEstimate(surfelPose.cast<float>());
 
       // std::cout << "SurfelPose before optim: " << std::endl << surfelVar->estimate().matrix() << std::endl;
@@ -856,12 +861,12 @@ void PointCloudProc::addSurfelsToGraph(srrg2_solver::FactorGraphPtr& graph, std:
         Eigen::Isometry3f odomPose = poses_.at(surfel.leafs_.at(i)->pointcloud_id_).cast<float>();
         Eigen::Isometry3f surfelInMap = Eigen::Isometry3f::Identity();
         surfelInMap.translation() = surfel.leafs_.at(i)->mean_.cast<float>();
-        surfelInMap.linear() = matrixBetween2Vectors(Eigen::Vector3f(0, 0, 1), surfel.leafs_.at(0)->eigenvectors_.col(0)).cast<float>();
+        surfelInMap.linear() = matrixBetween2Vectors(Eigen::Vector3f(0, 0, 1), surfel.getNormalEst());
         Eigen::Isometry3f surfInPose = odomPose.inverse() * surfelInMap;
         poseSurfelFactor->setMeasurement(surfInPose);
 
         // Calculate angle inclination
-        Eigen::Vector3f surfNormal = surfel.leafs_.at(0)->eigenvectors_.col(0).cast<float>();
+        Eigen::Vector3f surfNormal = surfel.getNormalEst();
         float cosa = surfNormal.dot(surfInPose.translation()) / (surfNormal.norm() * surfInPose.translation().norm());
         // Set information matrix
         Eigen::Matrix<float, 1, 1> infMat = Eigen::Matrix<float, 1, 1>::Identity();
@@ -991,17 +996,7 @@ void PointCloudProc::rawOptimizeSurfelsv2(std::vector<Surfelv2>& surfelsv2){ //}
     // Normal is not updated and is also set to first observation - changed to mean value
     // Surfel measurement must be in global frame, leafs are already in global frame, so they can be used directly
     // Update surfel position and normal using all surfels
-    Eigen::Vector3f meanAvg = Eigen::Vector3f::Identity();
-    Eigen::Vector3f normalAvg = Eigen::Vector3f::Identity();
-    for (uint i = 0; i < surfel.leafs_.size(); i++) {
-        meanAvg += surfel.leafs_.at(i)->mean_;
-        normalAvg += surfel.leafs_.at(i)->eigenvectors_.col(0);
-    }
-    meanAvg /= surfel.leafs_.size();
-    normalAvg /= surfel.leafs_.size();
-    normalAvg.normalize();
-    surfel.setMeanEst(meanAvg);
-    surfel.setNormalEst(normalAvg);
+    surfel.averageMeanAndNormal();
     
     for (uint i = 0; i < surfel.leafs_.size(); i++) {
       Eigen::Vector3f measPos = surfel.leafs_.at(i)->mean_;

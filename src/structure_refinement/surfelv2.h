@@ -61,6 +61,22 @@ class Surfelv2 {
     return maxRadius;
   }
 
+  void averageMeanAndNormal() {
+    Eigen::Vector3f meanAvg = Eigen::Vector3f::Identity();
+    Eigen::Vector3f normalAvg = Eigen::Vector3f::Identity();
+    for (uint i = 0; i < leafs_.size(); i++) {
+      meanAvg += leafs_.at(i)->mean_;
+      normalAvg += leafs_.at(i)->eigenvectors_.col(0);
+    }
+    meanAvg /= leafs_.size();
+    normalAvg /= leafs_.size();
+    std::cout << "Before normalization:  " << normalAvg.transpose();
+    normalAvg.normalize();
+    std::cout << "  After:  " << normalAvg << std::endl;
+    meanEst_ = meanAvg;
+    normalEst_ = normalAvg;
+  }
+
   //  protected:
   std::vector<TreeNodeTypePtr> leafs_;
   uint64_t id_;
