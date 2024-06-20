@@ -82,6 +82,7 @@ namespace structure_refinement {
         dataAssociation.prepareDataCPU(kdTrees_, kdTreeLeafes_);
         // Remove surfels with only 1-point leafs
         dataAssociation.filterSurfels();
+        //dataAssociation.decimateSurfels(10);
       }
 
       // Publish and save to file
@@ -660,7 +661,8 @@ namespace structure_refinement {
     // Add surfels
     {
       srrg2_core::Chrono chGP2("Adding surfels to graph", &_timings, false);
-      averageSurfels(surfelsv2);
+      if (useRawSurfelOptimization_ == false)
+        averageSurfels(surfelsv2);
       addSurfelsToGraph(graph, surfelsv2);
     }
     // Optimize the graph
@@ -824,6 +826,9 @@ void PointCloudProc::addSurfelsToGraph(srrg2_solver::FactorGraphPtr& graph, std:
     // Set lastID to the number of poses
     int64_t lastGraphId = poses_.size() - 1;
 
+    // Add robustifier
+    auto robustifier = new srrg2_solver::RobustifierClamp;
+    robustifier->param_chi_threshold.setValue(0.1);
     // Iterate through all surfels
     // for (const Surfelv2 & surfel : surfelsv2) {
     for (uint j = 0; j < surfelsv2.size(); j += 1) {
@@ -860,7 +865,7 @@ void PointCloudProc::addSurfelsToGraph(srrg2_solver::FactorGraphPtr& graph, std:
 
         Eigen::Isometry3f odomPose = poses_.at(surfel.leafs_.at(i)->pointcloud_id_).cast<float>();
         Eigen::Isometry3f surfelInMap = Eigen::Isometry3f::Identity();
-        surfelInMap.translation() = surfel.leafs_.at(i)->mean_.cast<float>();
+        surfelInMap.translation() = surfel.leafs_.at(i)->mean_;
         surfelInMap.linear() = matrixBetween2Vectors(Eigen::Vector3f(0, 0, 1), surfel.getNormalEst());
         Eigen::Isometry3f surfInPose = odomPose.inverse() * surfelInMap;
         poseSurfelFactor->setMeasurement(surfInPose);
@@ -875,6 +880,7 @@ void PointCloudProc::addSurfelsToGraph(srrg2_solver::FactorGraphPtr& graph, std:
         // poseSurfelFactor->setInformationMatrix()
 
         // Add factor to the graph
+        poseSurfelFactor->setRobustifier(robustifier);
         graph->addFactor(poseSurfelFactor);
       }
     }
@@ -1032,6 +1038,9 @@ void PointCloudProc::rawOptimizeSurfelsv2(std::vector<Surfelv2>& surfelsv2){ //}
     std::shared_ptr<srrg2_solver::IterationAlgorithmLM> lm(new srrg2_solver::IterationAlgorithmLM);
     lm->param_user_lambda_init.setValue(1e-7);
     solver.param_algorithm.setValue(lm);
+    // std::shared_ptr<srrg2_solver::IterationAlgorithmGN> gn(new srrg2_solver::IterationAlgorithmGN);
+    // gn->param_damping.setValue(0.0001);
+    // solver.param_algorithm.setValue(gn);
 
     // Connect the graph to the solver and compute
     solver.setGraph(graph);

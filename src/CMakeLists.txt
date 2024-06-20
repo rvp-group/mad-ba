@@ -1,1 +1,2 @@
 add_subdirectory(structure_refinement)
+add_subdirectory(types_krzystof)

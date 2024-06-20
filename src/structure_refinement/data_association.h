@@ -23,6 +23,7 @@ class DataAssociation {
   void processTheSurfelMatches(std::vector<SurfelMatches> &);
   void filterSurfels();
   void resetSurfels();
+  void decimateSurfels(int);
   std::vector<Surfelv2> &getSurfels() { return surfels_; }
 
  private:

@@ -70,9 +70,7 @@ class Surfelv2 {
     }
     meanAvg /= leafs_.size();
     normalAvg /= leafs_.size();
-    std::cout << "Before normalization:  " << normalAvg.transpose();
     normalAvg.normalize();
-    std::cout << "  After:  " << normalAvg << std::endl;
     meanEst_ = meanAvg;
     normalEst_ = normalAvg;
   }

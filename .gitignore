@@ -49,3 +49,5 @@ Thumbs.db
 *.wmv
 *.ply
 *.pcd
+*.tum
+*.png

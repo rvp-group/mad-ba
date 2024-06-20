@@ -118,4 +118,11 @@ void DataAssociation::resetSurfels() {
   Surfelv2::resetTheSurfelsCounter();  // Surfel's id is its position in a surfels_ vector, so it must be reset
 }
 
+void DataAssociation::decimateSurfels(int decimation) {
+  int position = 0;
+  surfels_.erase(std::remove_if(surfels_.begin(), surfels_.end(),
+                                [&position, decimation](const Surfelv2 &) { return position++ % decimation != 0; }),
+                 surfels_.end());
+}
+
 }  // namespace structure_refinement

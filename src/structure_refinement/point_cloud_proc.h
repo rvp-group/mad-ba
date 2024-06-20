@@ -26,9 +26,9 @@
 #include <srrg_solver/variables_and_factors/types_3d/all_types.h>
 #include <srrg_solver/variables_and_factors/types_3d/instances.h>
 #include <srrg_solver/solver_core/iteration_algorithm_lm.h>
-#include <srrg_solver/variables_and_factors/types_krzystof/instances.h>
-#include <srrg_solver/variables_and_factors/types_krzystof/variable_surfel.h>
-#include <srrg_solver/variables_and_factors/types_krzystof/se3_pose_surfel_factor_ad.h>
+#include <types_krzystof/instances.h>
+#include <types_krzystof/variable_surfel.h>
+#include <types_krzystof/se3_pose_surfel_factor_ad.h>
 #include <srrg_system_utils/chrono.h>
 #include <srrg_pcl/point_cloud.h>
 #include <srrg_system_utils/shell_colors.h>
