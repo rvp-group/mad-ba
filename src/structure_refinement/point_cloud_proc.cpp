@@ -896,7 +896,7 @@ void PointCloudProc::addPosesToGraphBA(srrg2_solver::FactorGraphPtr& graph, std:
     poseVar->setGraphId(idx);
 
     // Set first variable as Fixed
-    if (idx == 0)
+    if (useRawSurfelOptimization_ == false && idx == 0)
       poseVar->setStatus(srrg2_solver::VariableBase::Status::Fixed);
 
     // Set estimate with noise
