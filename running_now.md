@@ -1,11 +1,14 @@
 ### TODO
-- math_easy - commented averraginsurfels after optimization and before optimizing the poses - output
-- math easy - up + setfactor using surfel.MeanEst - output2
-
-- math_easy alternating with gn damping 1e4, loam, factor robustifier 0.1 - output
+-math easy - no averaging before optims above and without robustifier and faster, lm - output1
+-math easy - no averaging before optims above and without robustifier and faster, gn 1e1 - output2
+-math easy - no averaging before optims above and without robustififfier, split with solver lm - output3
 
 
 # Done 
+- math_easy - commented averraginsurfels after optimization and before optimizing the poses, robustifier 0.1, lm - the RMSE is decreasing and lower than originally, but after 25 iteration MAX error increases
+- math_easy - commented averraginsurfels after optimization and before optimizing the poses, robustifier 0.1, gn 1e3 - output - the RMSE is decreasing and lower than originally, but after 25 iteration MAX error increases 
+- math_easy - commented averraginsurfels after optimization and before optimizing the poses - output - looks like that helps
+- math_easy alternating with gn damping 1e4, loam, factor robustifier 0.1 - output
 - math_easy alternating with gn damping 1e3, loam, factor robustifier 0.1, only 1/4 trajectory  - output - same issue
 - math_easy alternating with gn damping 1e3, loam, factor robustifier 0.1, only half trajectory  - output2 - the same issue, max error for the first pose is increasing
 - math_easy alternating with gn damping 1e3, loam, factor robustifier 0.1, poses first  - output - the same issue, max error for the first pose is increasing
