@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(structure_refinement LANGUAGES CXX CUDA)
+project(structure_refinement LANGUAGES CXX)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -30,17 +30,6 @@ message("CMAKE FLAGS SET TO ${CMAKE_CXX_FLAGS}")
 
 find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR})
-
-# CUDA
-find_package(CUDA REQUIRED)
-include_directories(${CUDA_INCLUDE_DIRS})
-set(CUDA_ARCH "${ARCH_FLAGS}" CACHE STRING "Value of the NVCC -arch option." FORCE)
-set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} ${CUDA_ARCH} -lineinfo")
-message("CUDA ARCH FLAGS: ${ARCH_FLAGS}")
-message("CUDA FLAGS: ${CUDA_NVCC_FLAGS}")
-message(STATUS "CUDA_ARCH: \"${CUDA_ARCH}\"")
-
-
 
 # find_package(QGLViewer REQUIRED)
 # find_package(OpenCV REQUIRED)
@@ -80,7 +69,6 @@ include_directories(
   # ${SRRG_QT_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
   ${PROJECT_SOURCE_DIR}/src
-  ${CUDA_INCLUDE_DIRS}
   ${OpenMP_LIBS}
 )
 

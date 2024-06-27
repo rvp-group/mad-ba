@@ -18,10 +18,9 @@ target_link_libraries(structure_refinement_library
   srrg2_converters_library
   librviz_visual_tools.so
   ${OpenCV_LIBS}
-  ${CUDA_LIBRARIES}
   ${PCL_LIBRARIES}
 )
 
 set_target_properties(structure_refinement_library
- PROPERTIES CUDA_SEPARABLE_COMPILATION ON
+ PROPERTIES CUDA_SEPARABLE_COMPILATION OFF
  )
