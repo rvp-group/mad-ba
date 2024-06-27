@@ -10,7 +10,6 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   sensor_msgs
   srrg_cmake_modules
-  srrg_hbst
   srrg2_core
   srrg2_core_ros
   srrg2_solver
@@ -36,7 +35,7 @@ include_directories(${EIGEN3_INCLUDE_DIR})
 message(STATUS "${PROJECT_NAME}: OpenCV version ${OpenCV_VERSION}")
 message(STATUS "OpenCV_INCLUDE_DIRS: ${OpenCV_INCLUDE_DIRS}")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSRRG_MERGE_DESCRIPTORS -DSRRG_HBST_HAS_OPENCV")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSRRG_MERGE_DESCRIPTORS")
 
 find_package(PCL REQUIRED COMPONENTS)
 # if(PCL_FOUND)
@@ -50,7 +49,6 @@ catkin_package(
     structure_refinement
   CATKIN_DEPENDS
     srrg_cmake_modules
-    srrg_hbst
     srrg2_core
     srrg2_core_ros
     srrg2_solver
