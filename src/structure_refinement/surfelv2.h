@@ -39,8 +39,10 @@ class Surfelv2 {
   void addLeaf(TreeNodeTypePtr &leaf) {
     leaf->setSurfelId(this->id_);
     leafs_.push_back(leaf);
-    if (leafs_.size() == 1)
+    if (leafs_.size() == 1){
       meanEst_ = leaf->mean_.cast<float>();
+      normalEst_ = leaf->eigenvectors_.col(0);
+    }
   }
 
   bool hasLeafFromPointCloud(int pointCloudIdx) {
@@ -71,6 +73,8 @@ class Surfelv2 {
     meanAvg /= leafs_.size();
     normalAvg /= leafs_.size();
     normalAvg.normalize();
+    // std::cout << "Mean  before " << meanEst_.transpose() << " Mean after: " << meanAvg.transpose() << std::endl;
+    // std::cout << "Normal  before " << normalEst_.transpose() << " Normal after: " << normalAvg.transpose() << std::endl;
     meanEst_ = meanAvg;
     normalEst_ = normalAvg;
   }

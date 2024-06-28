@@ -825,7 +825,9 @@ void PointCloudProc::addSurfelsToGraph(srrg2_solver::FactorGraphPtr& graph, std:
 
     // Set lastID to the number of poses
     int64_t lastGraphId = poses_.size() - 1;
-
+    std::vector<int> surfelsInPose(poses_.size());
+    for (int i =0; i < surfelsInPose.size(); i++)
+        surfelsInPose.at(i) = 0;
     // Add robustifier
     auto robustifier = new srrg2_solver::RobustifierClamp;
     robustifier->param_chi_threshold.setValue(0.1);
@@ -859,6 +861,7 @@ void PointCloudProc::addSurfelsToGraph(srrg2_solver::FactorGraphPtr& graph, std:
         std::shared_ptr<srrg2_solver::SE3PoseSurfelQuaternionErrorFactorAD1D> poseSurfelFactor = std::make_shared<srrg2_solver::SE3PoseSurfelQuaternionErrorFactorAD1D>();
         poseSurfelFactor->setVariableId(0, surfel.leafs_.at(i)->pointcloud_id_);
         poseSurfelFactor->setVariableId(1, surfelVar->graphId());
+        surfelsInPose.at(surfel.leafs_.at(i)->pointcloud_id_) += 1;
         // poses_ .at(odomPoseId) should be the same as surfel->odomPoses_(i)
         // if (posesInGraph_.at(odomPoseId).matrix() != surfel->odomPoses_.at(i).matrix())
           // std::cout << "Error: Poses stored in surfel and saved as odometetry don't match" << std::endl;
@@ -884,6 +887,8 @@ void PointCloudProc::addSurfelsToGraph(srrg2_solver::FactorGraphPtr& graph, std:
         graph->addFactor(poseSurfelFactor);
       }
     }
+    // for (int i = 0; i < surfelsInPose.size(); i++)
+        // std::cout << "Pose " << i << " Surfels: " << surfelsInPose.at(i) << std::endl;
 }
 
 void PointCloudProc::addPosesToGraphBA(srrg2_solver::FactorGraphPtr& graph, std::vector<Eigen::Isometry3f>& poseVect) {

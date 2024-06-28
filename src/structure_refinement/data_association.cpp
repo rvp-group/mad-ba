@@ -31,7 +31,7 @@ void DataAssociation::associateDataKernelCPU(int numOfLeafs, int kdTreeAIdx, int
         Eigen::Vector3f a = matchPtr[i].surfelA->eigenvectors_.col(0).cast<float>();
         Eigen::Vector3f b = matchPtr[i].surfelB->eigenvectors_.col(0).cast<float>();
         float angle = atan2(a.cross(b).norm(), a.dot(b));
-        if (angle < maxAngle)
+        if (abs(angle) < maxAngle)
           matchPtr[i].matched = true;
       }
     }
@@ -49,11 +49,12 @@ void DataAssociation::prepareDataCPU(std::vector<std::unique_ptr<TreeNodeType>> 
 
   for (int i = 0; i < kdTrees.size(); i++)
     kdTreePtrs.push_back(kdTrees[i].get());
-
+  
+  int maxSurfelNum = 0;
   for (int i = 0; i < kdTrees.size() - 1; i++) {
     // Copy the container for surfelMatches to GPU (output)
     std::vector<SurfelMatches> kdTreeMatches(kdTreeLeafes.at(i).size());
-    if (i % 10 == 0)
+    if (i % 200 == 0)
       std::cout << "KdTree matching " << i << std::endl;
     for (int j = i + 1; j < kdTrees.size(); j++) {
       {
@@ -65,17 +66,16 @@ void DataAssociation::prepareDataCPU(std::vector<std::unique_ptr<TreeNodeType>> 
         processTheSurfelMatches(kdTreeMatches);
       }
     }
-    int maxNum = 0;
     int idx = 0;
     for (int k = 0; k < surfels_.size(); k++) {
       int num = surfels_.at(k).leafs_.size();
-      if (num > maxNum) {
-        maxNum = num;
+      if (num > maxSurfelNum) {
+        maxSurfelNum = num;
         idx = k;
       }
     }
-    std::cout << "Num of surfels " << surfels_.size() << " Max surfels:  " << maxNum << std::endl;
   }
+  std::cout << "Num of surfels " << surfels_.size() << " Max surfels:  " << maxSurfelNum << std::endl;
   std::cout << "Ended CPU computations " << std::endl;
   srrg2_core::Chrono::printReport(_timings);
 }
