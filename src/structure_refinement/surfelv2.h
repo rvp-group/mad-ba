@@ -64,8 +64,8 @@ class Surfelv2 {
   }
 
   void averageMeanAndNormal() {
-    Eigen::Vector3f meanAvg = Eigen::Vector3f::Identity();
-    Eigen::Vector3f normalAvg = Eigen::Vector3f::Identity();
+    Eigen::Vector3f meanAvg = Eigen::Vector3f::Zero();
+    Eigen::Vector3f normalAvg = Eigen::Vector3f::Zero();
     for (uint i = 0; i < leafs_.size(); i++) {
       meanAvg += leafs_.at(i)->mean_;
       normalAvg += leafs_.at(i)->eigenvectors_.col(0);

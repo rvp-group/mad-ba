@@ -817,8 +817,20 @@ std::vector<Eigen::Isometry3f> PointCloudProc::addSynthSurfelsToGraphBA(srrg2_so
 
 void PointCloudProc::averageSurfels(std::vector<Surfelv2>& surfelsv2) {
   // Average the surfel mean and position
-  for (Surfelv2 & surfel : surfelsv2)
+//   float maxAngleChange = 0;
+  for (Surfelv2 & surfel : surfelsv2){
+    // Eigen::Vector3f normalBefore = surfel.getNormalEst();
     surfel.averageMeanAndNormal();
+    // Eigen::Vector3f normalAfter = surfel.getNormalEst();
+    // float angle = atan2(normalBefore.cross(normalAfter).norm(), normalBefore.dot(normalAfter));
+    // if (abs(angle) > maxAngleChange)
+        // maxAngleChange = angle;
+    
+    // std::cout << "Angle change:  " << angle * 180.0 / M_PI << std::endl;
+
+  }
+
+//   std::cout << "Biggest angle change:  " << maxAngleChange * 180.0 / M_PI << std::endl;
 }
 
 void PointCloudProc::addSurfelsToGraph(srrg2_solver::FactorGraphPtr& graph, std::vector<Surfelv2>& surfelsv2){

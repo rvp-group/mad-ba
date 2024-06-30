@@ -82,8 +82,12 @@ void DataAssociation::prepareDataCPU(std::vector<std::unique_ptr<TreeNodeType>> 
 
 // Potentially this can be parallelized, as matches contain only pairs of surfels
 void DataAssociation::processTheSurfelMatches(std::vector<SurfelMatches> &matches) {
-  float maxD = 1 * 0.3;      // 1.5
-  float maxDNorm = 1 * 0.9;  // 3.0
+  float maxD = 1 * 0.3;
+  float maxDNorm = 1 * 0.9; 
+  float maxAngle = 5 * M_PI / 180.0;
+  float maxFoundAngle = 0;
+  float maxFoundDistance = 0;
+
   for (int i = 0; i < matches.size(); i++) {
     if (matches[i].matched == false)
       continue;
@@ -95,8 +99,17 @@ void DataAssociation::processTheSurfelMatches(std::vector<SurfelMatches> &matche
       float d = (surfels_.at(idSurfelA).getMeanEst() - matches[i].surfelB->mean_).norm();
       float dNorm = abs((matches[i].surfelB->mean_ - surfels_.at(idSurfelA).getMeanEst()).dot(surfels_.at(idSurfelA).getNormalEst()));
       if (d > maxD && dNorm > maxDNorm)
-        continue;
+         continue;
+      Eigen::Vector3f a = matches[i].surfelB->eigenvectors_.col(0);
+      Eigen::Vector3f b = surfels_.at(idSurfelA).getNormalEst();
+      float angle = atan2(a.cross(b).norm(), a.dot(b));
+      if (abs(angle) > maxAngle)
+         continue;
       // Check if given surfel Already has leaf from that pose
+      if (d > maxFoundDistance)
+       maxFoundDistance = d;
+      if (angle > maxFoundAngle)
+        maxFoundAngle = angle;
       int pointCloudBIdx = matches[i].surfelB->pointcloud_id_;
       if (surfels_.at(idSurfelA).hasLeafFromPointCloud(pointCloudBIdx) == false)
         surfels_.at(idSurfelA).addLeaf(matches[i].surfelB);
@@ -105,7 +118,16 @@ void DataAssociation::processTheSurfelMatches(std::vector<SurfelMatches> &matche
       float d = (surfels_.at(idSurfelB).getMeanEst() - matches[i].surfelA->mean_).norm();
       float dNorm = abs((matches[i].surfelA->mean_ - surfels_.at(idSurfelB).getMeanEst()).dot(surfels_.at(idSurfelB).getNormalEst()));
       if (d > maxD && dNorm > maxDNorm)
+         continue;
+      Eigen::Vector3f a = matches[i].surfelA->eigenvectors_.col(0);
+      Eigen::Vector3f b = surfels_.at(idSurfelB).getNormalEst();
+      float angle = atan2(a.cross(b).norm(), a.dot(b));
+      if (abs(angle) > maxAngle)
         continue;
+      if (d > maxFoundDistance)
+       maxFoundDistance = d;
+      if (angle > maxFoundAngle)
+        maxFoundAngle = angle;
       int pointCloudAIdx = matches[i].surfelA->pointcloud_id_;
       if (surfels_.at(idSurfelB).hasLeafFromPointCloud(pointCloudAIdx) == false)
         surfels_.at(idSurfelB).addLeaf(matches[i].surfelA);
@@ -117,6 +139,8 @@ void DataAssociation::processTheSurfelMatches(std::vector<SurfelMatches> &matche
       surfels_.push_back(newSurfel);
     }
   }
+
+//   std::cout << "Max matched angle " << maxFoundAngle * 180.0 / M_PI << " Max found distance " << maxFoundDistance << std::endl;
 }
 
 void DataAssociation::filterSurfels() {
