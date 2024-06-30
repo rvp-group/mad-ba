@@ -82,6 +82,8 @@ void DataAssociation::prepareDataCPU(std::vector<std::unique_ptr<TreeNodeType>> 
 
 // Potentially this can be parallelized, as matches contain only pairs of surfels
 void DataAssociation::processTheSurfelMatches(std::vector<SurfelMatches> &matches) {
+  float maxD = 1 * 0.3;      // 1.5
+  float maxDNorm = 1 * 0.9;  // 3.0
   for (int i = 0; i < matches.size(); i++) {
     if (matches[i].matched == false)
       continue;
@@ -89,11 +91,21 @@ void DataAssociation::processTheSurfelMatches(std::vector<SurfelMatches> &matche
     int idSurfelB = matches[i].surfelB->surfel_id_;
     if ((idSurfelA != -1) && (idSurfelB != -1)) {
     } else if (idSurfelA != -1) {
+      // Check distance again
+      float d = (surfels_.at(idSurfelA).getMeanEst() - matches[i].surfelB->mean_).norm();
+      float dNorm = abs((matches[i].surfelB->mean_ - surfels_.at(idSurfelA).getMeanEst()).dot(surfels_.at(idSurfelA).getNormalEst()));
+      if (d > maxD && dNorm > maxDNorm)
+        continue;
       // Check if given surfel Already has leaf from that pose
       int pointCloudBIdx = matches[i].surfelB->pointcloud_id_;
       if (surfels_.at(idSurfelA).hasLeafFromPointCloud(pointCloudBIdx) == false)
         surfels_.at(idSurfelA).addLeaf(matches[i].surfelB);
     } else if (idSurfelB != -1) {
+      // Check distance again
+      float d = (surfels_.at(idSurfelB).getMeanEst() - matches[i].surfelA->mean_).norm();
+      float dNorm = abs((matches[i].surfelA->mean_ - surfels_.at(idSurfelB).getMeanEst()).dot(surfels_.at(idSurfelB).getNormalEst()));
+      if (d > maxD && dNorm > maxDNorm)
+        continue;
       int pointCloudAIdx = matches[i].surfelA->pointcloud_id_;
       if (surfels_.at(idSurfelB).hasLeafFromPointCloud(pointCloudAIdx) == false)
         surfels_.at(idSurfelB).addLeaf(matches[i].surfelA);
