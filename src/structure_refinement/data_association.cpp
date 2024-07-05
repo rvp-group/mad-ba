@@ -14,7 +14,7 @@ namespace structure_refinement {
 uint64_t Surfelv2::counter_ = 0;
 
 void DataAssociation::associateDataKernelCPU(int numOfLeafs, int kdTreeAIdx, int kdTreeBIdx, TreeNodeTypePtr *kdTreeLeafesPtr, TreeNodeTypePtr *kdTreesPtr, SurfelMatches *matchPtr) {
-#pragma omp parallel for
+#pragma omp parallel for num_threads(4)
   for (int i = 0; i < numOfLeafs; i += 1) {
     matchPtr[i].matched = false;
     matchPtr[i].surfelA = kdTreeLeafesPtr[i];
@@ -22,8 +22,8 @@ void DataAssociation::associateDataKernelCPU(int numOfLeafs, int kdTreeAIdx, int
     TreeNodeTypePtr surfelTmp = kdTreesPtr[kdTreeAIdx]->bestMatchingLeafFast(matchPtr[i].surfelB->mean_);
     // If surfelA <-> is closest to surfelB and vice verse
     if (matchPtr[i].surfelA == surfelTmp) {
-      float maxD = 1 * 0.3;               // 1.5
-      float maxDNorm = 1 * 0.9;           // 3.0
+      float maxD = 1 * 0.1;               // 1.5
+      float maxDNorm = 1 * 0.2;           // 3.0
       float maxAngle = 5 * M_PI / 180.0;  // Smaller value converges faster
       float d = (matchPtr[i].surfelA->mean_ - matchPtr[i].surfelB->mean_).norm();
       float dNorm = abs((matchPtr[i].surfelB->mean_ - matchPtr[i].surfelA->mean_).dot(matchPtr[i].surfelA->eigenvectors_.col(0)));
@@ -82,8 +82,8 @@ void DataAssociation::prepareDataCPU(std::vector<std::unique_ptr<TreeNodeType>> 
 
 // Potentially this can be parallelized, as matches contain only pairs of surfels
 void DataAssociation::processTheSurfelMatches(std::vector<SurfelMatches> &matches) {
-  float maxD = 1 * 0.3;
-  float maxDNorm = 1 * 0.9; 
+  float maxD = 1 * 0.1;
+  float maxDNorm = 1 * 0.2; 
   float maxAngle = 5 * M_PI / 180.0;
   float maxFoundAngle = 0;
   float maxFoundDistance = 0;

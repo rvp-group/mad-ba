@@ -841,7 +841,7 @@ void PointCloudProc::addSurfelsToGraph(srrg2_solver::FactorGraphPtr& graph, std:
     for (int i =0; i < surfelsInPose.size(); i++)
         surfelsInPose.at(i) = 0;
     // Add robustifier
-    auto robustifier = new srrg2_solver::RobustifierClamp;
+    auto robustifier = new srrg2_solver::RobustifierHuber;
     robustifier->param_chi_threshold.setValue(0.1);
     // Iterate through all surfels
     // for (const Surfelv2 & surfel : surfelsv2) {
@@ -1326,7 +1326,7 @@ void PointCloudProc::rawOptimizeSurfelsv2(std::vector<Surfelv2>& surfelsv2){ //}
 
     static std::string path = ros::package::getPath("structure_refinement") + "/output/";
     static int cnt = 0;
-    pcl::io::savePLYFile(path + "ply/surfelCloud_" + std::to_string(cnt) + ".ply", psCloud);
+    // pcl::io::savePLYFile(path + "ply/surfelCloud_" + std::to_string(cnt) + ".ply", psCloud);
     pcl::io::savePCDFile(path + "pcd/surfelCloud_" + std::to_string(cnt) + ".pcd", psCloud);
     cnt++;
   }
