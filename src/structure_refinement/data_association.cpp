@@ -22,16 +22,13 @@ void DataAssociation::associateDataKernelCPU(int numOfLeafs, int kdTreeAIdx, int
     TreeNodeTypePtr surfelTmp = kdTreesPtr[kdTreeAIdx]->bestMatchingLeafFast(matchPtr[i].surfelB->mean_);
     // If surfelA <-> is closest to surfelB and vice verse
     if (matchPtr[i].surfelA == surfelTmp) {
-      float maxD = 1 * 0.1;               // 1.5
-      float maxDNorm = 1 * 0.2;           // 3.0
-      float maxAngle = 5 * M_PI / 180.0;  // Smaller value converges faster
       float d = (matchPtr[i].surfelA->mean_ - matchPtr[i].surfelB->mean_).norm();
       float dNorm = abs((matchPtr[i].surfelB->mean_ - matchPtr[i].surfelA->mean_).dot(matchPtr[i].surfelA->eigenvectors_.col(0)));
-      if (d < maxD || dNorm < maxDNorm) {
+      if (d < maxDst_ || dNorm < maxDstNorm_) {
         Eigen::Vector3f a = matchPtr[i].surfelA->eigenvectors_.col(0).cast<float>();
         Eigen::Vector3f b = matchPtr[i].surfelB->eigenvectors_.col(0).cast<float>();
         float angle = atan2(a.cross(b).norm(), a.dot(b));
-        if (abs(angle) < maxAngle)
+        if (abs(angle) < maxAngle_)
           matchPtr[i].matched = true;
       }
     }
@@ -82,9 +79,6 @@ void DataAssociation::prepareDataCPU(std::vector<std::unique_ptr<TreeNodeType>> 
 
 // Potentially this can be parallelized, as matches contain only pairs of surfels
 void DataAssociation::processTheSurfelMatches(std::vector<SurfelMatches> &matches) {
-  float maxD = 1 * 0.1;
-  float maxDNorm = 1 * 0.2; 
-  float maxAngle = 5 * M_PI / 180.0;
   float maxFoundAngle = 0;
   float maxFoundDistance = 0;
 
@@ -98,12 +92,12 @@ void DataAssociation::processTheSurfelMatches(std::vector<SurfelMatches> &matche
       // Check distance again
       float d = (surfels_.at(idSurfelA).getMeanEst() - matches[i].surfelB->mean_).norm();
       float dNorm = abs((matches[i].surfelB->mean_ - surfels_.at(idSurfelA).getMeanEst()).dot(surfels_.at(idSurfelA).getNormalEst()));
-      if (d > maxD && dNorm > maxDNorm)
+      if (d > maxDst_ && dNorm > maxDstNorm_)
          continue;
       Eigen::Vector3f a = matches[i].surfelB->eigenvectors_.col(0);
       Eigen::Vector3f b = surfels_.at(idSurfelA).getNormalEst();
       float angle = atan2(a.cross(b).norm(), a.dot(b));
-      if (abs(angle) > maxAngle)
+      if (abs(angle) > maxAngle_)
          continue;
       // Check if given surfel Already has leaf from that pose
       if (d > maxFoundDistance)
@@ -117,12 +111,12 @@ void DataAssociation::processTheSurfelMatches(std::vector<SurfelMatches> &matche
       // Check distance again
       float d = (surfels_.at(idSurfelB).getMeanEst() - matches[i].surfelA->mean_).norm();
       float dNorm = abs((matches[i].surfelA->mean_ - surfels_.at(idSurfelB).getMeanEst()).dot(surfels_.at(idSurfelB).getNormalEst()));
-      if (d > maxD && dNorm > maxDNorm)
+      if (d > maxDst_ && dNorm > maxDstNorm_)
          continue;
       Eigen::Vector3f a = matches[i].surfelA->eigenvectors_.col(0);
       Eigen::Vector3f b = surfels_.at(idSurfelB).getNormalEst();
       float angle = atan2(a.cross(b).norm(), a.dot(b));
-      if (abs(angle) > maxAngle)
+      if (abs(angle) > maxAngle_)
         continue;
       if (d > maxFoundDistance)
        maxFoundDistance = d;

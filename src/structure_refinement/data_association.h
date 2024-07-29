@@ -15,7 +15,8 @@ using TreeNodeTypePtr = TreeNodeType *;
 
 class DataAssociation {
  public:
-  DataAssociation() {}
+  DataAssociation(float maxDst, float maxDstNorm, float maxAngle) : maxDst_(maxDst), maxDstNorm_(maxDstNorm), maxAngle_(maxAngle) {
+  }
   ~DataAssociation() {}
 
   void associateDataKernelCPU(int, int, int, TreeNodeTypePtr *, TreeNodeTypePtr *, SurfelMatches *);
@@ -28,6 +29,9 @@ class DataAssociation {
 
  private:
   std::vector<Surfelv2> surfels_;
+  float maxDst_;
+  float maxDstNorm_;
+  float maxAngle_;
 };
 
 }  // namespace structure_refinement

@@ -76,6 +76,18 @@ namespace structure_refinement {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     PARAM(PropertyFloat, radius, "radius", 2.f, 0);
+    PARAM(PropertyInt, clouds_to_process, "clouds_to_process", 0, 0);
+    PARAM(PropertyInt, decimate_real_data, "decimate_real_data", 1, 0);
+    PARAM(PropertyInt, clouds_to_skip, "clouds_to_skip", 0, 0);
+    PARAM(PropertyInt, iter_num, "iter_num", 0, 0);
+    PARAM(PropertyString, output_folder, "output_folder", "no_name", 0);
+    PARAM(PropertyBool, add_one_odom_factor, "add_one_odom_factor", 0, 0);
+    PARAM(PropertyFloat, max_dst_DA, "max_dst_DA", 0.5, 0);
+    PARAM(PropertyFloat, max_dst_norm_DA, "max_dst_norm_DA", 1.0, 0);
+    PARAM(PropertyFloat, max_angle_DA, "max_angle_DA", 5.0, 0);
+    PARAM(PropertyString, odom_topic, "odom_topic", "no_name", 0);
+    PARAM(PropertyFloat, robustifier_huber_chi, "robustifier_huber_chi", 0.1, 0);
+
     PointCloudProc();
     virtual ~PointCloudProc();
     bool putMessage(srrg2_core::BaseSensorMessagePtr msg) override;   // Handle messages from the srrg pipeline
@@ -124,6 +136,7 @@ namespace structure_refinement {
     void createAndSaveScans(std::vector<Surfelv2>&);
     void processOdomAndScans(srrg2_core::BaseSensorMessagePtr msg);
     void processSequence();
+    void initalizeParams();
 
    protected:
     using PointUnprojectorBase = srrg2_core::PointUnprojectorBase_<srrg2_core::PointNormalIntensity3fVectorCloud>;
@@ -178,6 +191,12 @@ namespace structure_refinement {
     int decimateRealData_;
     int cloudsToSkip_;
     int cloudsToProcess_;
+    string outputFolder_;
+    bool addOneOdomFactor_;
+    float maxDstDA_;
+    float maxDstNormDA_;
+    float maxAngleDA_;
+    float robustifierHuberChi_;
     };
 
   using PointCloudProcPtr = std::shared_ptr<PointCloudProc>;
