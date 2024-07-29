@@ -1,8 +1,10 @@
 #include "point_cloud_proc.h"
+#include <filesystem>
 
 namespace structure_refinement {
   using namespace srrg2_core;
   using namespace srrg2_core_ros;
+  namespace fs = std::filesystem;
   using LidarProjectorType   = PointIntensity3fProjectorOS1_64;
   using LidarUnprojectorType = PointIntensity3fUnprojectorOS1_64;
   using NormalComputatorType = NormalComputator2DCrossProduct<PointNormal3fVectorCloud,0>; //NormalComputator2DCrossProduct<PointNormal3fMatrixCloud, 1>;
@@ -38,28 +40,77 @@ namespace structure_refinement {
       // Whether to use synthetic data
       useSynthethicData_ = false;
       // Whether to optimze the surfel using solver or raw method
-      useRawSurfelOptimization_ = true;
+      useRawSurfelOptimization_ = false;
       // Saves some RAM if false (4GB for ~2000 poses)
       visualizePointClouds_ = false; 
       // Whether to save scans to output/scans
       saveSurfelsScans_ = false;
-      // Skip first n messages and process only m first clouds
-      cloudsToSkip_ = 0;
-      // Parameter for decimating the messages
-      decimateRealData_ = 1;
-      // Number of poses to process
-      cloudsToProcess_ = 1991 * decimateRealData_;
-      // Number of optimization -> surfel recreations iterations
-      iterNum_ = 3;
       // Number of internal iterations when using rawSurfelOptimization
-      rawIterNum_ = 3;
+      rawIterNum_ = 1;
 
   }
 
   PointCloudProc::~PointCloudProc()  {
   }
 
+  void PointCloudProc::initalizeParams(){
+      // Skip first n messages and process only m first clouds
+      cloudsToSkip_ = param_clouds_to_skip.value();
+      // Parameter for decimating the messages
+      decimateRealData_ = param_decimate_real_data.value();
+      // Number of poses to process
+      cloudsToProcess_ = param_clouds_to_process.value(); //* decimateRealData_;
+      // Number of optimization -> surfel recreations iterations
+      iterNum_ = param_iter_num.value();
+      // Add odometry factor between 1st and 2nd pose
+      addOneOdomFactor_ = param_add_one_odom_factor.value();
+      // Huber robustifier chi value
+      robustifierHuberChi_ = param_robustifier_huber_chi.value();
+      // Data association parameters
+      maxDstDA_ = param_max_dst_DA.value();
+      maxDstNormDA_ = param_max_dst_norm_DA.value();
+      maxAngleDA_ = param_max_angle_DA.value();
+      // Output filepath
+      outputFolder_ = param_output_folder.value();
+      // Create folders   
+      int cnt = 0;
+      while (true) {
+        std::string path = ros::package::getPath("structure_refinement") + "/output/" + outputFolder_ + "_" + std::to_string(cnt);;           
+        if (!fs::is_directory(path) || !fs::exists(path)) {  // Check if src folder exists
+          fs::create_directory(path);                        // create src folder
+          fs::create_directory(path + "/pcd");
+          fs::create_directory(path + "/tum");
+          fs::create_directory(path + "/scans");
+          outputFolder_ += "_" + std::to_string(cnt);
+
+          std::ofstream file;
+          file.open(path + "/params.txt");
+          file << "cloudsToProcess: " << cloudsToProcess_ << std::endl;
+          file << "decimateRealData: " << decimateRealData_ << std::endl;
+          file << "iterNum: " << iterNum_ << std::endl;
+          file << "cloudsToSkip: " << cloudsToSkip_ << std::endl;
+          file << "outputFolder: " << outputFolder_ << std::endl;
+          file << "addOneOdomFactor: " << addOneOdomFactor_ << std::endl;
+          file << "maxDstDA: " << maxDstDA_ << std::endl;
+          file << "maxDstNormDA: " << maxDstNormDA_ << std::endl;
+          file << "maxAngleDA: " << maxAngleDA_ << std::endl;
+          file << "odomTopic: " << param_odom_topic.value() << std::endl;
+          file << "robustifierHuberChi: " << param_robustifier_huber_chi.value() << std::endl; 
+          file.close();
+          break;
+          
+        } else
+          cnt++;
+      }
+  }
+
   bool PointCloudProc::putMessage(srrg2_core::BaseSensorMessagePtr msg) {
+    static bool initalize = true;
+    if (initalize)
+    {
+        initalize = false;
+        initalizeParams();
+    }
       srrg2_core::Chrono ch1("putMessage", &_timings, false);
       // Skip cloudsToSkip
       static int msgCnt = -1;
@@ -76,7 +127,7 @@ namespace structure_refinement {
 
   void PointCloudProc::processSequence() {
     for (int i = 0; i < iterNum_; i++) {
-      DataAssociation dataAssociation;
+      DataAssociation dataAssociation(maxDstDA_, maxDstNormDA_, maxAngleDA_);
       {
         srrg2_core::Chrono ch2("prepareData CPU", &_timings, false);
         dataAssociation.prepareDataCPU(kdTrees_, kdTreeLeafes_);
@@ -183,7 +234,7 @@ namespace structure_refinement {
   }
 
   void PointCloudProc::savePosesToFile() {
-    static std::string path = ros::package::getPath("structure_refinement") + "/output/tum/";
+    static std::string path = ros::package::getPath("structure_refinement") + "/output/" + outputFolder_ + "/tum/";
     static int cnt = 0;
     std::string filename;
     if (useRawSurfelOptimization_) {
@@ -842,7 +893,7 @@ void PointCloudProc::addSurfelsToGraph(srrg2_solver::FactorGraphPtr& graph, std:
         surfelsInPose.at(i) = 0;
     // Add robustifier
     auto robustifier = new srrg2_solver::RobustifierHuber;
-    robustifier->param_chi_threshold.setValue(0.1);
+    robustifier->param_chi_threshold.setValue(robustifierHuberChi_);
     // Iterate through all surfels
     // for (const Surfelv2 & surfel : surfelsv2) {
     for (uint j = 0; j < surfelsv2.size(); j += 1) {
@@ -915,6 +966,23 @@ void PointCloudProc::addPosesToGraphBA(srrg2_solver::FactorGraphPtr& graph, std:
     // Set first variable as Fixed
     if (useRawSurfelOptimization_ == false && idx == 0)
       poseVar->setStatus(srrg2_solver::VariableBase::Status::Fixed);
+
+    if (addOneOdomFactor_ == true and idx == 2){
+      auto factor = std::make_shared<srrg2_solver::SE3PosePoseGeodesicErrorFactor>();
+      factor->setVariableId(0, 0);
+      factor->setVariableId(1, 1);
+
+      // Set the measurement based on GT data, without the perturbation
+      Eigen::Isometry3f inc = poseVect.at(0).inverse() * poseVect.at(1);
+      factor->setMeasurement(inc);
+
+      // Set information matrix as Identity
+      Eigen::Matrix<float, 6, 6> infMat = Eigen::Matrix<float, 6, 6>::Identity();
+      factor->setInformationMatrix(infMat * 1000);
+
+      // Add factor to the graph
+      graph->addFactor(factor);
+    }
 
     // Set estimate with noise
     poseVar->setEstimate(poseVect.at(idx).cast<float>());
@@ -1062,7 +1130,6 @@ void PointCloudProc::rawOptimizeSurfelsv2(std::vector<Surfelv2>& surfelsv2){ //}
     // Connect the graph to the solver and compute
     solver.setGraph(graph);
     // solver.saveGraph("before.graph");
-
     // Optimize the graph
     solver.compute();
     // solver.saveGraph("after.graph");
@@ -1324,10 +1391,10 @@ void PointCloudProc::rawOptimizeSurfelsv2(std::vector<Surfelv2>& surfelsv2){ //}
 
     surfelPointCloudPub_.publish(rosCloud);
 
-    static std::string path = ros::package::getPath("structure_refinement") + "/output/";
+    static std::string path = ros::package::getPath("structure_refinement") + "/output/" + outputFolder_;
     static int cnt = 0;
     // pcl::io::savePLYFile(path + "ply/surfelCloud_" + std::to_string(cnt) + ".ply", psCloud);
-    pcl::io::savePCDFile(path + "pcd/surfelCloud_" + std::to_string(cnt) + ".pcd", psCloud);
+    pcl::io::savePCDFile(path + "/pcd/surfelCloud_" + std::to_string(cnt) + ".pcd", psCloud);
     cnt++;
   }
 
@@ -1414,14 +1481,14 @@ void PointCloudProc::rawOptimizeSurfelsv2(std::vector<Surfelv2>& surfelsv2){ //}
 
     // Save scans to file and bag
     rosbag::Bag bag;
-    std::string path = ros::package::getPath("structure_refinement") + "/output/";
+    std::string path = ros::package::getPath("structure_refinement") + "/output/" + outputFolder_;
     bag.open(path + "scans/bag/test.bag", rosbag::bagmode::Write);
     int scanCnt = 0;
     for (auto & psCloud: psCloudsVec){
       if (psCloud.size() == 0)
         continue;
-      pcl::io::savePLYFile(path + "scans/ply/surfelScan_" + std::to_string(scanCnt) + ".ply", psCloud);
-      pcl::io::savePCDFile(path + "scans/pcd/surfelScan_" + std::to_string(scanCnt) + ".pcd", psCloud);
+      pcl::io::savePLYFile(path + "/scans/ply/surfelScan_" + std::to_string(scanCnt) + ".ply", psCloud);
+      pcl::io::savePCDFile(path + "/scans/pcd/surfelScan_" + std::to_string(scanCnt) + ".pcd", psCloud);
 
       sensor_msgs::PointCloud2 rosCloud;
       pcl::toROSMsg(psCloud, rosCloud);
