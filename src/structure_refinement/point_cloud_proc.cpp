@@ -59,7 +59,7 @@ namespace structure_refinement {
       // Parameter for decimating the messages
       decimateRealData_ = param_decimate_real_data.value();
       // Number of poses to process
-      cloudsToProcess_ = param_clouds_to_process.value(); //* decimateRealData_;
+      cloudsToProcess_ = param_clouds_to_process.value(); // * decimateRealData_;
       // Number of optimization -> surfel recreations iterations
       iterNum_ = param_iter_num.value();
       // Add odometry factor between 1st and 2nd pose
@@ -69,7 +69,7 @@ namespace structure_refinement {
       // Data association parameters
       maxDstDA_ = param_max_dst_DA.value();
       maxDstNormDA_ = param_max_dst_norm_DA.value();
-      maxAngleDA_ = param_max_angle_DA.value();
+      maxAngleDA_ = param_max_angle_DA.value() * M_PI / 180.0;
       // Output filepath
       outputFolder_ = param_output_folder.value();
       // Create folders   
