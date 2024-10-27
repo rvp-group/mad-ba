@@ -937,11 +937,11 @@ void PointCloudProc::addSurfelsToGraph(srrg2_solver::FactorGraphPtr& graph, std:
         poseSurfelFactor->setMeasurement(surfInPose);
 
         // Calculate angle inclination
-        Eigen::Vector3f surfNormal = surfel.getNormalEst();
-        float cosa = surfNormal.dot(surfInPose.translation()) / (surfNormal.norm() * surfInPose.translation().norm());
+        // Eigen::Vector3f surfNormal = surfel.getNormalEst();
+        // float cosa = surfNormal.dot(surfInPose.translation()) / (surfNormal.norm() * surfInPose.translation().norm());
         // Set information matrix
         Eigen::Matrix<float, 1, 1> infMat = Eigen::Matrix<float, 1, 1>::Identity();
-        infMat *= abs(cosa);
+        infMat *= surfel.leafs_.at(i)->weight_;
         poseSurfelFactor->setInformationMatrix(infMat);
         // poseSurfelFactor->setInformationMatrix()
 
