@@ -80,6 +80,7 @@ public:
   Eigen::Matrix3f eigenvectors_;
   int surfel_id_ = -1;
   int pointcloud_id_ = -1;
+  float weight_;
 
 protected:
   TreeNode3D(){};
