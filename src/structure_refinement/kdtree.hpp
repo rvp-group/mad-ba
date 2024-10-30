@@ -82,61 +82,61 @@ inline void TreeNode3D<ContainerType_>::build(
     mean_ = nearest_point;
 
         // ***************** BEGIN OF BEAM SIMULATION ***************** //
-    const float beam_divergence_deg = 0.35; // os0
-    // const float beam_divergence_deg = 0.18; // os1
+    const double beam_divergence_deg = 0.35; // os0-128, Rest
+    // const float beam_divergence_deg = 0.18; // os1-64, Campus, Ciampino
 
-    const float beam_divergence = beam_divergence_deg * M_PI / 180.0;
+    const double beam_divergence = beam_divergence_deg * M_PI / 180.0;
     const int root_num_beams = 11; // must be odd
-    const float beam_delta = beam_divergence / float(root_num_beams-1);
+    const double beam_delta = beam_divergence / double(root_num_beams-1);
 
-    const float mean_azimuth = std::atan2(mean_(1), mean_(0));
-    const float mean_elevation = std::asin(mean_(2) / mean_.norm());
-    const Eigen::Vector3f mean_direction = mean_ / mean_.norm();
+    const double mean_azimuth = std::atan2(mean_(1), mean_(0));
+    const double mean_elevation = std::asin(mean_(2) / mean_.norm());
+    const Eigen::Vector3d mean_direction = mean_.cast<double>() / mean_.norm();
 
-    std::vector<float> waveform_ranges;
+    std::vector<double> waveform_ranges;
     for (int i = -root_num_beams / 2; i <= root_num_beams / 2; ++i) {
-      const float azimuth = mean_azimuth + i * beam_delta;
+      const double azimuth = mean_azimuth + i * beam_delta;
       for (int j = -root_num_beams / 2; j <= root_num_beams / 2; ++j) {
-        const float elevation = mean_elevation + j * beam_delta;
-        const Eigen::Vector3f direction(std::cos(azimuth) * std::cos(elevation),
+        const double elevation = mean_elevation + j * beam_delta;
+        const Eigen::Vector3d direction(std::cos(azimuth) * std::cos(elevation),
                                          std::sin(azimuth) * std::cos(elevation),
                                          std::sin(elevation));
-        const Eigen::Vector3f direction_normalized = direction / direction.norm();
+        const Eigen::Vector3d direction_normalized = direction / direction.norm();
 
-        const float mean_dot = mean_direction.dot(direction_normalized);
-        const float angle = std::acos(mean_dot);
+        const double mean_dot = mean_direction.dot(direction_normalized);
+        const double angle = std::acos(mean_dot);
 
         // If line is inside the cone
         if (angle < beam_divergence / 2.0) {
 
-          Eigen::Vector3f plane_point = mean_;
-          Eigen::Vector3f plane_normal = eigenvectors_.col(0);
-          Eigen::Vector3f line_direction = direction_normalized;
+          Eigen::Vector3d plane_point = mean_.cast<double>();
+          Eigen::Vector3d plane_normal = eigenvectors_.col(0).cast<double>();
+          Eigen::Vector3d line_direction = direction_normalized;
 
           // Compute the intersection point of the plane and the line
-          const float denominator = plane_normal.dot(line_direction);
+          const double denominator = plane_normal.dot(line_direction);
           if (std::abs(denominator) < 1e-6) {
             continue;
           }
-          const float numerator = plane_normal.dot(plane_point);
-          const float d = numerator / denominator;
-          const Eigen::Vector3f intersection_point = d * line_direction;
+          const double numerator = plane_normal.dot(plane_point);
+          const double d = numerator / denominator;
+          const Eigen::Vector3d intersection_point = d * line_direction;
 
-          const float range = intersection_point.norm();
+          const double range = intersection_point.norm();
           waveform_ranges.push_back(range);
         }
       }
     }
 
-    float std_dev = 0;
-    const float mean_range = mean_.norm();
-    for (const float& range : waveform_ranges) {
+    double std_dev = 0;
+    const double mean_range = mean_.norm();
+    for (const double range : waveform_ranges) {
       std_dev += std::pow(range - mean_range, 2);
     }
     if (!waveform_ranges.empty()) {
       std_dev = std::sqrt(std_dev / waveform_ranges.size());
     }
-    const float meas_sucks_with_std_dev = 0.25; // more than half of sub-beams are below 0.25m of error
+    const double meas_sucks_with_std_dev = 0.25; // more than half of sub-beams are below 0.25m of error
     weight_ = std::min(std_dev, meas_sucks_with_std_dev); // cut the std_dev to be at most bad as meas_sucks_with_std_dev
     weight_ = weight_ / meas_sucks_with_std_dev; // normalize weight_ to be between 0 and 1
     weight_ = 1. - weight_; // flip the weight_
