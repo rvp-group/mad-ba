@@ -137,7 +137,7 @@ namespace structure_refinement {
       }
 
       // Publish and save to file
-      publishSavePointSurfv2(dataAssociation.getSurfels());
+      publishSavePointSurfv2(dataAssociation.getSurfels(), "_beforeOptim");
 
       if (useRawSurfelOptimization_){
         for (int j=0; j < rawIterNum_; j++)
@@ -159,8 +159,8 @@ namespace structure_refinement {
       // visualizeCorrespondingSurfelsV2WithPoses(dataAssociation.getSurfels());
 
       // if last iteraton publish and save to file
+      publishSavePointSurfv2(dataAssociation.getSurfels(), "_afterOptim");
       if (i == iterNum_ - 1) {
-        publishSavePointSurfv2(dataAssociation.getSurfels());
         savePosesToFile();
         if (saveSurfelsScans_)
           createAndSaveScans(dataAssociation.getSurfels());
@@ -1353,7 +1353,7 @@ void PointCloudProc::rawOptimizeSurfelsv2(std::vector<Surfelv2>& surfelsv2){ //}
     }
   }
 
-  void PointCloudProc::publishSavePointSurfv2(std::vector<Surfelv2>& surfelsv2) {
+  void PointCloudProc::publishSavePointSurfv2(std::vector<Surfelv2>& surfelsv2, std::string pathSuffix) {
      
     pcl::PointSurfel ps;
     pcl::PointCloud<pcl::PointSurfel> psCloud;
@@ -1394,7 +1394,11 @@ void PointCloudProc::rawOptimizeSurfelsv2(std::vector<Surfelv2>& surfelsv2){ //}
     static std::string path = ros::package::getPath("structure_refinement") + "/output/" + outputFolder_;
     static int cnt = 0;
     // pcl::io::savePLYFile(path + "ply/surfelCloud_" + std::to_string(cnt) + ".ply", psCloud);
-    pcl::io::savePCDFile(path + "/pcd/surfelCloud_" + std::to_string(cnt) + ".pcd", psCloud);
+    if (cnt == 0)
+        pcl::io::savePCDFile(path + "/pcd/surfelCloud_" + std::to_string(cnt) + pathSuffix + ".pcd", psCloud);
+    else
+        pcl::io::savePCDFile(path + "/pcd/surfelCloud_" + "last" + pathSuffix + ".pcd", psCloud);
+
     cnt++;
   }
 
