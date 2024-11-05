@@ -941,7 +941,11 @@ void PointCloudProc::addSurfelsToGraph(srrg2_solver::FactorGraphPtr& graph, std:
         // float cosa = surfNormal.dot(surfInPose.translation()) / (surfNormal.norm() * surfInPose.translation().norm());
         // Set information matrix
         Eigen::Matrix<float, 1, 1> infMat = Eigen::Matrix<float, 1, 1>::Identity();
-        infMat *= surfel.leafs_.at(i)->weight_;
+        if (surfel.leafs_.at(i)->weight_ > 5e-2)
+          infMat *= surfel.leafs_.at(i)->weight_;
+        else
+          infMat *= 0.05;
+
         poseSurfelFactor->setInformationMatrix(infMat);
         // poseSurfelFactor->setInformationMatrix()
 
