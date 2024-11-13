@@ -888,9 +888,7 @@ void PointCloudProc::addSurfelsToGraph(srrg2_solver::FactorGraphPtr& graph, std:
 
     // Set lastID to the number of poses
     int64_t lastGraphId = poses_.size() - 1;
-    std::vector<int> surfelsInPose(poses_.size());
-    for (int i =0; i < surfelsInPose.size(); i++)
-        surfelsInPose.at(i) = 0;
+    std::vector<int> surfelsInPose(poses_.size(), 0);
     // Add robustifier
     auto robustifier = new srrg2_solver::RobustifierHuber;
     robustifier->param_chi_threshold.setValue(robustifierHuberChi_);
@@ -929,11 +927,11 @@ void PointCloudProc::addSurfelsToGraph(srrg2_solver::FactorGraphPtr& graph, std:
         // if (posesInGraph_.at(odomPoseId).matrix() != surfel->odomPoses_.at(i).matrix())
           // std::cout << "Error: Poses stored in surfel and saved as odometetry don't match" << std::endl;
 
-        Eigen::Isometry3f odomPose = poses_.at(surfel.leafs_.at(i)->pointcloud_id_).cast<float>();
+        const Eigen::Isometry3f odomPose = poses_.at(surfel.leafs_.at(i)->pointcloud_id_).cast<float>();
         Eigen::Isometry3f surfelInMap = Eigen::Isometry3f::Identity();
         surfelInMap.translation() = surfel.leafs_.at(i)->mean_;
         surfelInMap.linear() = matrixBetween2Vectors(Eigen::Vector3f(0, 0, 1), surfel.getNormalEst());
-        Eigen::Isometry3f surfInPose = odomPose.inverse() * surfelInMap;
+        const Eigen::Isometry3f surfInPose = odomPose.inverse() * surfelInMap;
         poseSurfelFactor->setMeasurement(surfInPose);
 
         // Calculate angle inclination

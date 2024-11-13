@@ -29,8 +29,8 @@ class Surfelv2 {
     normalEst_ = normal;
   }
 
-  Eigen::Vector3f getMeanEst() const { return meanEst_; }
-  Eigen::Vector3f getNormalEst() const { return normalEst_; }
+  const Eigen::Vector3f & getMeanEst() const { return meanEst_; }
+  const Eigen::Vector3f & getNormalEst() const { return normalEst_; }
 
   static void resetTheSurfelsCounter() {
     counter_ = 0;
@@ -66,19 +66,19 @@ class Surfelv2 {
   }
 
   void averageMeanAndNormal() {
-    Eigen::Vector3f meanAvg = Eigen::Vector3f::Zero();
-    Eigen::Vector3f normalAvg = Eigen::Vector3f::Zero();
+    Eigen::Vector3d meanAvg = Eigen::Vector3d::Zero();
+    Eigen::Vector3d normalAvg = Eigen::Vector3d::Zero();
     for (uint i = 0; i < leafs_.size(); i++) {
-      meanAvg += leafs_.at(i)->mean_;
-      normalAvg += leafs_.at(i)->eigenvectors_.col(0);
+      meanAvg += leafs_.at(i)->mean_.cast<double>();
+      normalAvg += leafs_.at(i)->eigenvectors_.col(0).cast<double>();
     }
     meanAvg /= leafs_.size();
     normalAvg /= leafs_.size();
     normalAvg.normalize();
     // std::cout << "Mean  before " << meanEst_.transpose() << " Mean after: " << meanAvg.transpose() << std::endl;
     // std::cout << "Normal  before " << normalEst_.transpose() << " Normal after: " << normalAvg.transpose() << std::endl;
-    meanEst_ = meanAvg;
-    normalEst_ = normalAvg;
+    meanEst_ = meanAvg.cast<float>();
+    normalEst_ = normalAvg.cast<float>();
   }
 
   //  protected:

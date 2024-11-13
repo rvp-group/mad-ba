@@ -94,8 +94,8 @@ void DataAssociation::processTheSurfelMatches(std::vector<SurfelMatches> &matche
       float dNorm = abs((matches[i].surfelB->mean_ - surfels_.at(idSurfelA).getMeanEst()).dot(surfels_.at(idSurfelA).getNormalEst()));
       if (d > maxDst_ && dNorm > maxDstNorm_)
          continue;
-      Eigen::Vector3f a = matches[i].surfelB->eigenvectors_.col(0);
-      Eigen::Vector3f b = surfels_.at(idSurfelA).getNormalEst();
+      const Eigen::Vector3f &a = matches[i].surfelB->eigenvectors_.col(0);
+      const Eigen::Vector3f &b = surfels_.at(idSurfelA).getNormalEst();
       float angle = atan2(a.cross(b).norm(), a.dot(b));
       if (abs(angle) > maxAngle_)
          continue;
@@ -112,9 +112,9 @@ void DataAssociation::processTheSurfelMatches(std::vector<SurfelMatches> &matche
       float d = (surfels_.at(idSurfelB).getMeanEst() - matches[i].surfelA->mean_).norm();
       float dNorm = abs((matches[i].surfelA->mean_ - surfels_.at(idSurfelB).getMeanEst()).dot(surfels_.at(idSurfelB).getNormalEst()));
       if (d > maxDst_ && dNorm > maxDstNorm_)
-         continue;
-      Eigen::Vector3f a = matches[i].surfelA->eigenvectors_.col(0);
-      Eigen::Vector3f b = surfels_.at(idSurfelB).getNormalEst();
+        continue;
+      const Eigen::Vector3f &a = matches[i].surfelA->eigenvectors_.col(0);
+      const Eigen::Vector3f &b = surfels_.at(idSurfelB).getNormalEst();
       float angle = atan2(a.cross(b).norm(), a.dot(b));
       if (abs(angle) > maxAngle_)
         continue;
