@@ -43,6 +43,8 @@ class Surfelv2 {
       meanEst_ = leaf->mean_.cast<float>();
       normalEst_ = leaf->eigenvectors_.col(0);
     }
+    else
+      averageMeanAndNormal();
   }
 
   bool hasLeafFromPointCloud(int pointCloudIdx) {
