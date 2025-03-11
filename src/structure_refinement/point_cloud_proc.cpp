@@ -1420,8 +1420,8 @@ void PointCloudProc::rawOptimizeSurfelsv2(std::vector<Surfelv2>& surfelsv2){ //}
     // Define the noise added to the poses
     static std::random_device rd;                                  // obtain a random number from hardware
     static std::mt19937 gen(rd());                                 // seed the generator
-    static std::normal_distribution<float> noiseTrans(0.0, 0.0);  // define the noise for translation
-    static std::normal_distribution<float> noiseRot(0.0, 0.0 * M_PI / 180.0);   // define the noise for rotation
+    static std::normal_distribution<float> noiseTrans(0.0, transNoiseStddev_);  // define the noise for translation
+    static std::normal_distribution<float> noiseRot(0.0, rotNoiseStddev_ * M_PI / 180.0);   // define the noise for rotation
 
     // Take all poses
     Eigen::Isometry3f perturbation = Eigen::Isometry3f::Identity();
