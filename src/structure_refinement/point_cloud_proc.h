@@ -87,6 +87,8 @@ namespace structure_refinement {
     PARAM(PropertyFloat, max_angle_DA, "max_angle_DA", 5.0, 0);
     PARAM(PropertyString, odom_topic, "odom_topic", "no_name", 0);
     PARAM(PropertyFloat, robustifier_huber_chi, "robustifier_huber_chi", 0.1, 0);
+    PARAM(PropertyFloat, trans_noise_stddev, "trans_noise_stddev", 0.0, 0);
+    PARAM(PropertyFloat, rot_noise_stddev, "rot_noise_stddev", 0.0, 0);
 
     PointCloudProc();
     virtual ~PointCloudProc();
@@ -197,6 +199,8 @@ namespace structure_refinement {
     float maxDstNormDA_;
     float maxAngleDA_;
     float robustifierHuberChi_;
+    float transNoiseStddev_;
+    float rotNoiseStddev_;
     };
 
   using PointCloudProcPtr = std::shared_ptr<PointCloudProc>;

@@ -72,6 +72,9 @@ namespace structure_refinement {
       maxAngleDA_ = param_max_angle_DA.value() * M_PI / 180.0;
       // Output filepath
       outputFolder_ = param_output_folder.value();
+      // Noise values
+      transNoiseStddev_ = param_trans_noise_stddev.value();
+      rotNoiseStddev_ = param_rot_noise_stddev.value();
       // Create folders   
       int cnt = 0;
       while (true) {
