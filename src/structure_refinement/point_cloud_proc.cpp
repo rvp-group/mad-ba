@@ -99,6 +99,8 @@ namespace structure_refinement {
           file << "maxAngleDA: " << maxAngleDA_ << std::endl;
           file << "odomTopic: " << param_odom_topic.value() << std::endl;
           file << "robustifierHuberChi: " << param_robustifier_huber_chi.value() << std::endl; 
+          file << "transNoiseStddev_: " << param_trans_noise_stddev.value() << std::endl; 
+          file << "rotNoiseStddev: " <<param_rot_noise_stddev.value() << std::endl;
           file.close();
           break;
           
