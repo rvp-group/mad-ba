@@ -1,0 +1,14 @@
+1. path_matrix:
+        finish polishing
+
+2. point_cloud:
+        make it compatible with KD tree
+        make it easy to use
+        implement explicit instantiation (saves compiling time)
+
+3 viewers:
+        leave only outer interface. in core
+        No dependancies allowed.
+        Buffers: pimp them?
+                 Linear buffers of maximum size with encoded commands?
+        User interaction?

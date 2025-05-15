@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>srrg2_core</name>
+  <version>1.0.0</version>
+  <description>The srrg2_core package</description>
+  <maintainer email="grisetti@dis.uniroma1.it">Giorgio Grisetti</maintainer>
+  <maintainer email="schlegel@diag.uniroma1.it">Dominik Schlegel</maintainer>
+  <maintainer email="dellacorte@diag.uniroma1.it">Bartolomeo Della Corte</maintainer>
+  <maintainer email="ialoise@diag.uniroma1.it">Irvin Aloise</maintainer>
+  
+  <license>BSD-4</license>
+  <buildtool_depend>catkin</buildtool_depend>
+  
+  <depend>srrg_cmake_modules</depend>
+
+</package>

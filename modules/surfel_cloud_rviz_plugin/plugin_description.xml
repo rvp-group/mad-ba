@@ -1,0 +1,10 @@
+<library path="libsurfel_cloud_rviz_plugin">
+  <class name="surfel_cloud_rviz_plugin/SurfelCloud"
+         type="surfel_cloud_rviz_plugin::SurfelCloudDisplay"
+         base_class_type="rviz::Display">
+    <description>
+      Displays a surfel cloud from sensor_msgs/PointCloud2 messages.
+    </description>
+    <message_type>sensor_msgs/PointCloud2</message_type>
+  </class>
+</library>

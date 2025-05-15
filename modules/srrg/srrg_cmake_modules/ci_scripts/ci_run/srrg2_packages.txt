@@ -1,0 +1,14 @@
+srrg2_core
+srrg2_state_machine
+srrg2_qgl_viewport
+srrg2_solver
+srrg2_slam_interfaces
+srrg2_nw_calibration
+srrg2_laser_slam_2d
+srrg2_proslam
+srrg2_shaslam
+srrg2_mpr
+srrg2_nicp
+srrg2_executor
+srrg2_config_visualizer
+srrg2_finslam

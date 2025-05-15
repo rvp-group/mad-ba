@@ -1,0 +1,6 @@
+add_subdirectory(app)
+add_subdirectory(node)
+add_subdirectory(srrg_converters)
+add_subdirectory(srrg_messages_ros)
+add_subdirectory(srrg_viewer_ros)
+add_subdirectory(tests)

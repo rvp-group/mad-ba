@@ -1,0 +1,6 @@
+add_subdirectory(types_common)
+add_subdirectory(types_2d)
+add_subdirectory(types_3d)
+add_subdirectory(types_projective)
+add_subdirectory(types_calib)
+add_subdirectory(types_sfm)

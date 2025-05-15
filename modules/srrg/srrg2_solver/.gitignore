@@ -1,0 +1,13 @@
+*~
+.o
+\#*
+*.cproject
+*.project
+*/.settings/*
+./settings/*
+tags
+html/
+latex/
+.vscode/*
+*/.vscode/*
+sphere5000.boss

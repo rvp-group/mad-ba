@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>srrg2_core_ros</name>
+  <version>1.0.0</version>
+  <description>The srrg2_core_ros package</description>
+  <license>BSD-4</license>
+  
+  <maintainer email="colosi@diag.uniroma1.it">Mirco Colosi</maintainer>
+  <maintainer email="grisetti@dis.uniroma1.it">Giorgio Grisetti</maintainer>
+  <maintainer email="schlegel@diag.uniroma1.it">Dominik Schlegel</maintainer>
+  <maintainer email="dellacorte@diag.uniroma1.it">Bartolomeo Della Corte</maintainer>
+  <maintainer email="ialoise@diag.uniroma1.it">Irvin Aloise</maintainer>
+  
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>message_generation</build_depend>
+  <exec_depend>message_runtime</exec_depend>
+
+  <!-- ia depend includes build and run dependencies -->
+  <depend>srrg_cmake_modules</depend>
+  <depend>srrg2_core</depend>
+  <depend>tf</depend>
+  <depend>image_transport</depend>
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>cv_bridge</depend>
+  <depend>rosbag</depend>
+  <depend>rosbag_storage</depend>
+  <depend>roscpp</depend>
+  
+</package>

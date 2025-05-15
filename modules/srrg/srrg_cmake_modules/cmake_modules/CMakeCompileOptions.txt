@@ -1,0 +1,92 @@
+# general options
+
+#set(CMAKE_BUILD_TYPE Debug)
+
+if(NOT CMAKE_BUILD_TYPE)
+set(CMAKE_BUILD_TYPE Release)
+endif()
+
+OPTION (SRRG_ENABLE_CUDA "enable cuda" OFF)
+
+if (${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS "6.0.0")
+   set(USED_CXX_STD c++1z)
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=${USED_CXX_STD}")
+   message("${PROJECT_NAME}|old compiler, using std=${USED_CXX_STD} flag")
+else()
+   set(CMAKE_CXX_STANDARD 17)
+   #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
+   message("${PROJECT_NAME}|good you have a fresh compiler, using std=c++17 flag")
+endif()
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wall")
+set(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -std=gnu99 -fPIC -Wall")
+
+if (${CMAKE_BUILD_TYPE} MATCHES Release)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Ofast -DNDEBUG")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Ofast -DNDEBUG")
+
+  # if (NOT ${CMAKE_SYSTEM_PROCESSOR} MATCHES arm AND NOT ${SRRG_ENABLE_CUDA})
+  #   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+  # endif()
+
+  if (${CMAKE_HOST_SYSTEM_PROCESSOR} MATCHES armv7l)
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv7-a -mfpu=neon-vfpv4 -mfloat-abi=hard -funsafe-math-optimizations")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=armv7-a -mfpu=neon-vfpv4 -mfloat-abi=hard -funsafe-math-optimizations")
+    message("${PROJECT_NAME}|ENABLING ARM NEON OPTIMIZATIONS")
+  endif ()
+
+endif()
+
+if (${CMAKE_BUILD_TYPE} MATCHES Debug)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
+endif()
+
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${srrg_cmake_modules_INCLUDE_DIRS})
+# ia logging should not be of type STATUS otherwise catkin build will not show the message
+message("${PROJECT_NAME}|build type: ${CMAKE_BUILD_TYPE}")
+if (CMAKE_VERSION VERSION_GREATER "3.0")
+   message("${PROJECT_NAME}|cxx_standard: ${CMAKE_CXX_STANDARD}")
+endif()
+message("${PROJECT_NAME}|common cxx flags: ${CMAKE_CXX_FLAGS}")
+
+OPTION (SRRG_COMPILE_APPS "compile the non essential srrg applications" ON)
+OPTION (SRRG_COMPILE_BENCHMARKS "compile the srrg regression tests" OFF)
+OPTION (SRRG_COMPILE_TESTS "compiles the gtests" OFF)
+OPTION (SRRG_COMPILE_EXAMPLES "compiles the examples" OFF)
+OPTION (SRRG_USE_CUDA "uses cuda" OFF)
+
+
+if (SRRG_ENABLE_CUDA)
+set(SRRG_USE_CUDA ON)
+endif()
+
+if (SRRG_NOAPPS)
+set(SRRG_COMPILE_APPS OFF)
+endif()
+
+if (SRRG_NOTESTS)
+set(SRRG_COMPILE_TESTS OFF)
+endif()
+
+if (SRRG_NOBENCH)
+set(SRRG_COMPILE_BENCHMARKS OFF)
+endif()
+
+if (SRRG_NOEXAMPLES)
+set(SRRG_COMPILE_EXAMPLES OFF)
+endif()
+
+if (SRRG_USE_CUDA)
+   add_definitions(-DSRRG_USE_CUDA)
+   find_file(CUDA_HEADER cuda_runtime.h PATHS /usr/include/ /usr/local/cuda/include/)
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -include ${CUDA_HEADER}")
+else()
+   add_definitions(-D__host__=/**/ -D__device__=/**/)
+endif()
+
+message("COMPILE_APPS ${SRRG_COMPILE_APPS}")
+message("COMPILE EXAMPLES ${SRRG_COMPILE_EXAMPLES}")
+message("COMPILE_TESTS ${SRRG_COMPILE_TESTS}")
+message("COMPILE BENCHMARKS ${SRRG_COMPILE_BENCHMARKS}")
+message("CUDA   ${SRRG_USE_CUDA}")

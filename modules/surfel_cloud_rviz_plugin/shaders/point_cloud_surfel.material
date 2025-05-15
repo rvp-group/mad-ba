@@ -1,0 +1,47 @@
+material surfel_cloud_rviz_plugin/SurfelPointCloud
+{
+  technique gp
+  {
+    pass
+    {
+      alpha_rejection greater_equal 1
+      point_size_attenuation on
+      point_sprites on
+      vertex_program_ref   surfel_cloud_rviz_plugin/point.vert {}
+      fragment_program_ref surfel_cloud_rviz_plugin/flat_color_circle.frag {}
+    }
+  }
+  
+  technique depth
+  {
+    scheme Depth
+    pass
+    {
+      point_size_attenuation on
+      vertex_program_ref surfel_cloud_rviz_plugin/point.vert(with_depth) {}
+      fragment_program_ref surfel_cloud_rviz_plugin/depth_circle.frag {}
+    }
+  }
+  
+  technique selection_first_pass
+  {
+    scheme Pick
+    pass
+    {
+      point_size_attenuation on
+      vertex_program_ref surfel_cloud_rviz_plugin/point.vert {}
+      fragment_program_ref surfel_cloud_rviz_plugin/pickcolor_circle.frag {}
+    }
+  }
+  
+  technique selection_second_pass
+  {
+    scheme Pick1
+    pass
+    {
+      point_size_attenuation on
+      vertex_program_ref surfel_cloud_rviz_plugin/point.vert {}
+      fragment_program_ref surfel_cloud_rviz_plugin/pass_color_circle.frag {}
+    }
+  }
+}
