@@ -206,7 +206,7 @@ namespace mad_ba {
   }
 
   void PointCloudProc::savePosesToFile() {
-    static std::string path = ros::package::getPath("mad_ba") + "/output/" + outputFolder_ + "/tum/";
+    static std::string path = "/root/share/output/" + outputFolder_ + "/tum/";
     static int cnt = 0;
     std::string filename;
     if (useRawSurfelOptimization_) {
@@ -1346,7 +1346,7 @@ void PointCloudProc::rawOptimizeSurfelsv2(std::vector<Surfelv2>& surfelsv2){ //}
 
     surfelPointCloudPub_.publish(rosCloud);
 
-    static std::string path = ros::package::getPath("mad_ba") + "/output/" + outputFolder_;
+    static std::string path = "/root/share/output/" + outputFolder_;
     static int cnt = 0;
     pcl::io::savePCDFile(path + "/pcd/surfelCloud_" + std::to_string(cnt) + pathSuffix + ".pcd", psCloud);
     cnt++;
@@ -1441,7 +1441,7 @@ void PointCloudProc::rawOptimizeSurfelsv2(std::vector<Surfelv2>& surfelsv2){ //}
     for (auto & psCloud: psCloudsVec){
       if (psCloud.size() == 0)
         continue;
-      pcl::io::savePLYFile(path + "/scans/ply/surfelScan_" + std::to_string(scanCnt) + ".ply", psCloud);
+      // pcl::io::savePLYFile(path + "/scans/ply/surfelScan_" + std::to_string(scanCnt) + ".ply", psCloud);
       pcl::io::savePCDFile(path + "/scans/pcd/surfelScan_" + std::to_string(scanCnt) + ".pcd", psCloud);
 
       sensor_msgs::PointCloud2 rosCloud;
