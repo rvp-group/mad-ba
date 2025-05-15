@@ -7,10 +7,13 @@
 - Build ROS packages: ```cd /catkin_ws && catkin build -DCMAKE_BUILD_TYPE=Release```
 
 ## Prepare data
-- 
+- Download .bag file ie.: ```cd /root/share/dataset/VBR/Spagna/bag && bash download_spagna.sh```
+- Preprocess .bag file: ```cd /root/share/dataset/VBR/Spagna && python3 process_bag.py```
 
 ## Run MAD-BA
-- Run mad-ba: 
+- Run MAD-BA: ```roscd mad_ba && 
+
+
 ### Clone repositories (inside container)
 ```bash
 # SRRG

@@ -12,7 +12,7 @@ RUN apt update && apt install -y git wget bash-completion unzip python3-pip ros-
         libblas-dev liblapack-dev libgflags-dev libgoogle-glog-dev libqglviewer-dev-qt5 vim openssh-server python3-catkin-tools \
         ros-$ROS_DISTRO-grid-map ros-$ROS_DISTRO-eigen-stl-containers ros-$ROS_DISTRO-graph-msgs screen nano \
         ros-$ROS_DISTRO-ublox-msgs gnuplot && \
-        pip install gdown evo packaging termplotlib && \
+        pip install gdown evo packaging termplotlib vbr-devkit && \
         mkdir -p /catkin_ws/src/ && \
         echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc && \
         echo "source /catkin_ws/devel/setup.bash" >> ~/.bashrc
