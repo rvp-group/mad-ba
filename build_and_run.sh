@@ -12,11 +12,11 @@ if [ -z "$1" ]
 fi
 docker build --no-cache -f Dockerfile -t $ROS_IMAGE ./.
 
-# BUILD THE IMAGE
+# SETUP THE CONTAINER
 ROS_CONTAINER="mad_ba"
 
 docker run -dit \
-    --volume="./docker_shared:/root/share" \
+    --volume="$(pwd)/docker_shared:/root/share" \
     --privileged \
     --network=host \
     --name="$ROS_CONTAINER" \
