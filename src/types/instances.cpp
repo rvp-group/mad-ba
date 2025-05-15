@@ -9,7 +9,7 @@ namespace srrg2_solver {
 
   // this is the function you have to call to initialize
   // the serialization subsystem
-  void variables_and_factors_krzystof_registerTypes() {
+  void variables_and_factors_types_registerTypes() {
     BOSS_REGISTER_CLASS(VariableSurfel);
     BOSS_REGISTER_CLASS(VariableSurfel1D);
     BOSS_REGISTER_CLASS(VariableSurfelAD);
