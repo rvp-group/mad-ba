@@ -1,6 +1,13 @@
+<div align="center">
+    <h1>MAD-BA</h1>
+    <h3>3D LiDAR Bundle Adjustment &mdash; from Uncertainty Modelling to Structure Optimization</h3>
+</div>
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/Uz1ST_lP8r4" frameborder="0" allowfullscreen></iframe>
+
+
 ## Create Docker Image and Container
-- Build image: ```./build_image.sh```
-- Create ontainer: ```./run_container.sh```
+- Build image and create container: ```./build_and_run.sh```
 
 ## Build MAD-BA
 - Start and enter container: ```docker start mad_ba && docker exec -it mad_ba bash```
