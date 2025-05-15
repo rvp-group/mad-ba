@@ -18,21 +18,62 @@
 </div>
 
 ## Build and Run
+The MAD-BA was developed and tested on Ubuntu 20.04 with ROS Noetic.
 #### Create Docker Image and Container
-- Build image and create container: ```./build_and_run.sh```
+- Clone repository
+```bash
+git clone https://github.com/rvp-group/mad-ba.git
+```
+- Build docker image and create container: 
+```bash
+cd mad_ba && ./build_and_run.sh
+```
 
 #### Build MAD-BA
-- Start and enter container: ```docker start mad_ba && docker exec -it mad_ba bash```
-- Build ROS packages: ```cd /catkin_ws && catkin build -DCMAKE_BUILD_TYPE=Release```
+- Start and enter container: 
+```bash
+docker start mad_ba && docker exec -it mad_ba bash
+```
+- Build ROS packages (inside container): 
+```bash
+cd /catkin_ws && catkin build -DCMAKE_BUILD_TYPE=Release
+```
 
 #### Prepare data
-- Download .bag file ie.: 
-```cd /root/share/dataset/VBR/Spagna/bag && bash download_spagna.sh```
-- Preprocess .bag file: ```cd /root/share/dataset/VBR/Spagna && python3 process_bag.py```
+- Download example `.bag` file (inside container): 
+```bash
+cd /root/share/dataset/NewerCollege/quad_easy/bag && bash download_quad.sh # quad_easy sequence
+cd /root/share/dataset/VBR/Spagna/bag && bash download_spagna.sh # Spagna sequence
+```
+- Preprocess `.bag` file by reordering message using their timestamps and add inital trajectory as `nav_msgs/Odometry` messages:
+```bash
+cd /root/share/dataset/NewerCollege/quad_easy && python3 process_bag.py  # quad_easy sequence
+cd /root/share/dataset/VBR/Spagna && python3 process_bag.py  # Spagna sequence
+```
 
 #### Run MAD-BA
-- Start roscore in *screen*: ```screen -dmS roscore roscore```
-- Run MAD-BA: ```roscd mad_ba && rosrun mad_ba  main_app -c config/VBR/spagna.config```
+- Start roscore in background: 
+```bash
+screen -dmS roscore roscore
+```
+- Run MAD-BA: 
+```bash
+roscd mad_ba && rosrun mad_ba main_app -c config/NewerCollege/quad_easy_fast.config # quad_easy sequence
+roscd mad_ba && rosrun mad_ba main_app -c config/VBR/spagna.config # Spagna sequence
+```
 
 #### Output
-- Check **./docker_shared/output/** folder 
+- Check **./docker_shared/output/** folder:
+  - `tum` - contains the optimized trajectory for each iteration
+  - `pcd` - contains the optimized map for each iteration
+
+#### Parameters
+To modify parameters edit `.config` file for given sequence, located in `/catkin_ws/src/mad_ba/config` in Docker container:
+
+```json
+"filename":           //path to .bag file
+"topics":             //topics for point cloud and odometry messages
+"clouds_to_process":  //number of point clouds in .bag file
+"decimate_real_data": //decimation - increase for longer sequences
+"iter_num":           //number of BA iterations
+```
