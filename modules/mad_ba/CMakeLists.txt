@@ -10,6 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
   srrg2_core
   srrg2_core_ros
   srrg2_solver
+  rviz_visual_tools
 )
 
 set(SRRG_ENABLE_CUDA OFF)
@@ -41,6 +42,7 @@ catkin_package(
     srrg2_core
     srrg2_core_ros
     srrg2_solver
+    rviz_visual_tools
   DEPENDS
 )
 

@@ -23,4 +23,5 @@
   <depend>srrg2_core</depend>
   <depend>srrg2_core_ros</depend>
   <depend>srrg2_solver</depend>
+  <depend>rviz_visual_tools</depend>
 </package>
