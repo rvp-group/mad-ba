@@ -52,7 +52,7 @@ int main(int argc, char** argv) {
     cmd.parse();
 
     // Find the dynamic libraries
-    const std::string dl_path = ros::package::getPath("mad_ba") + "/config/dl.conf";
+    const std::string dl_path = ros::package::getPath("mad_ba") + "/dl.conf";
     ConfigurableManager::initFactory(dl_path);
 
     // Read the config file

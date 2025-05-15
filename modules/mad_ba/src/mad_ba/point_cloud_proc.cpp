@@ -78,7 +78,7 @@ namespace mad_ba {
       // Create folders   
       int cnt = 0;
       while (true) {
-        std::string path = ros::package::getPath("mad_ba") + "/output/" + outputFolder_ + "_" + std::to_string(cnt);;           
+        std::string path = "/root/share/output/" + outputFolder_ + "_" + std::to_string(cnt);;           
         if (!fs::is_directory(path) || !fs::exists(path)) {  // Check if src folder exists
           fs::create_directory(path);                        // create src folder
           fs::create_directory(path + "/pcd");
