@@ -6,9 +6,9 @@
 
 #include "kdtree.cuh"
 #include "surfelv2.h"
-#include "structure_refinement/surfel_matches.h"
+#include "mad_ba/surfel_matches.h"
 
-namespace structure_refinement {
+namespace mad_ba {
 using ContainerType = std::vector<Eigen::Vector3f>;
 using TreeNodeType = TreeNode3D<ContainerType>;
 using TreeNodeTypePtr = TreeNodeType *;
@@ -34,4 +34,4 @@ class DataAssociation {
   float maxAngle_;
 };
 
-}  // namespace structure_refinement
+}  // namespace mad_ba

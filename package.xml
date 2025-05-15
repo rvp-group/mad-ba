@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>structure_refinement</name>
+  <name>mad_ba</name>
   <version>0.0.0</version>
-  <description>The structure_refinement package</description>
+  <description>The mad_ba package</description>
   <maintainer email="kcwian@todo.todo">kcwian</maintainer>
   <license>TODO</license>
 

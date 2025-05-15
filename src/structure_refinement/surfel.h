@@ -21,7 +21,7 @@
 #include <iostream>
 #include <vector>
 
-namespace structure_refinement {
+namespace mad_ba {
 using namespace srrg2_core;
 
 // This should be rather named CorrespondingSurfels or sth
@@ -70,4 +70,4 @@ class SynthSurfel {
 };
 using SynthSurfelPtr = std::shared_ptr<SynthSurfel>;
 
-}  // namespace structure_refinement
+}  // namespace mad_ba

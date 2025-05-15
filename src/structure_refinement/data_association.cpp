@@ -5,11 +5,11 @@
 #include <stdint.h>                             
 #include <iostream>                             
 #include "srrg_system_utils/chrono.h"           
-#include "structure_refinement/kdtree.hpp"      
-#include "structure_refinement/surfel_matches.h"
-#include "structure_refinement/surfelv2.h"      
+#include "mad_ba/kdtree.hpp"      
+#include "mad_ba/surfel_matches.h"
+#include "mad_ba/surfelv2.h"      
 
-namespace structure_refinement {
+namespace mad_ba {
 
 uint64_t Surfelv2::counter_ = 0;
 
@@ -155,4 +155,4 @@ void DataAssociation::decimateSurfels(int decimation) {
                  surfels_.end());
 }
 
-}  // namespace structure_refinement
+}  // namespace mad_ba

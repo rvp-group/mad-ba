@@ -1,6 +1,6 @@
 #include "surfel.h"
 
-namespace structure_refinement {
+namespace mad_ba {
 unsigned int Surfel::idCounter = 0;
 
 Surfel::Surfel() {
@@ -76,4 +76,4 @@ Eigen::Matrix3f SynthSurfel::matrixBetween2Vectors(Eigen::Vector3f a, Eigen::Vec
   return r;
 }
 
-}  // namespace structure_refinement
+}  // namespace mad_ba

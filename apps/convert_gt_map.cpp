@@ -24,7 +24,7 @@
 #include <srrg_system_utils/parse_command_line.h>
 #include <srrg_system_utils/shell_colors.h>
 #include <srrg_system_utils/system_utils.h>
-#include <structure_refinement/point_cloud_proc.h>
+#include <mad_ba/point_cloud_proc.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>

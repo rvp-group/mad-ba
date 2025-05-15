@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(structure_refinement LANGUAGES CXX)
+project(mad_ba LANGUAGES CXX)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -46,7 +46,7 @@ catkin_package(
   INCLUDE_DIRS
     src
   LIBRARIES
-    structure_refinement
+    mad_ba
   CATKIN_DEPENDS
     srrg_cmake_modules
     srrg2_core

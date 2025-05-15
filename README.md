@@ -11,10 +11,10 @@
 ## Run
 - To run trajectory and map optimization:
 ```console
-$ roscd structure_refinement/config
+$ roscd mad_ba/config
 $ rosrun srrg2_executor auto_dl_finder
 $ ln -s path_to_bag_file . # Soft link the .bag file to config folder
-$ rosrun structure_refinement main_app -c main_app.config
+$ rosrun mad_ba main_app -c main_app.config
 ```
 - To run trajectory and map optimization, and map evaluation
 ```

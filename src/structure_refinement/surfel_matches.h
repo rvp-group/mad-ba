@@ -7,7 +7,7 @@
 #include <memory>
 #include <vector>
 
-namespace structure_refinement {
+namespace mad_ba {
 using ContainerType = std::vector<Eigen::Vector3f>;
 using TreeNodeType = TreeNode3D<ContainerType>;
 using TreeNodeTypePtr = TreeNodeType*;
@@ -18,4 +18,4 @@ struct SurfelMatches {
   bool matched;
 };
 
-}  // namespace structure_refinement
+}  // namespace mad_ba

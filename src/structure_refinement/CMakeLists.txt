@@ -1,4 +1,4 @@
-add_library(structure_refinement_library SHARED
+add_library(mad_ba_library SHARED
   point_cloud_proc.cpp
   point_cloud_proc_visual.cpp
   surfel.cpp
@@ -7,7 +7,7 @@ add_library(structure_refinement_library SHARED
   utils.cpp
 )
 
-target_link_libraries(structure_refinement_library
+target_link_libraries(mad_ba_library
   srrg2_solver_core_library
   srrg2_point_cloud_library
   srrg2_messages_library
@@ -21,6 +21,6 @@ target_link_libraries(structure_refinement_library
   ${PCL_LIBRARIES}
 )
 
-set_target_properties(structure_refinement_library
+set_target_properties(mad_ba_library
  PROPERTIES CUDA_SEPARABLE_COMPILATION OFF
  )

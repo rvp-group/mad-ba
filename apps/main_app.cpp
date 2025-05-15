@@ -22,7 +22,7 @@
 #include <srrg_system_utils/parse_command_line.h>
 #include <srrg_system_utils/shell_colors.h>
 #include <srrg_system_utils/system_utils.h>
-#include <structure_refinement/point_cloud_proc.h>
+#include <mad_ba/point_cloud_proc.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -43,8 +43,8 @@ std::shared_ptr<PipelineRunner> runner;
 
 int main(int argc, char** argv) {
     // Initalize ROS
-    srrgInit(argc, argv, "structure_refinement");
-    ros::init(argc, argv, "structure_refinement");
+    srrgInit(argc, argv, "mad_ba");
+    ros::init(argc, argv, "mad_ba");
 
     // Parse commandline arguments
     ParseCommandLine cmd(argv);
@@ -52,7 +52,7 @@ int main(int argc, char** argv) {
     cmd.parse();
 
     // Find the dynamic libraries
-    const std::string dl_path = ros::package::getPath("structure_refinement") + "/config/dl.conf";
+    const std::string dl_path = ros::package::getPath("mad_ba") + "/config/dl.conf";
     ConfigurableManager::initFactory(dl_path);
 
     // Read the config file

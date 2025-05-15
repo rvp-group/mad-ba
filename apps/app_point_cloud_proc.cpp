@@ -35,7 +35,7 @@
 #include <srrg_solver/solver_core/solver.h>
 #include <srrg_system_utils/parse_command_line.h>
 #include <srrg_system_utils/system_utils.h>
-#include <structure_refinement/point_cloud_proc.h>
+#include <mad_ba/point_cloud_proc.h>
 
 
 using namespace srrg2_core;
@@ -82,7 +82,7 @@ int main(int argc, char** argv) {
     return -1;
   }
 
-  const std::string dl_folder_path = "/home/kcwian/Workspace/srrg2_source/src/structure_refinement/config";
+  const std::string dl_folder_path = "/home/kcwian/Workspace/srrg2_source/src/mad_ba/config";
   const std::string dl_stub_path = crawlForFile("dl.conf", dl_folder_path);
   ConfigurableManager::initFactory(dl_stub_path);
   manager.read(config_file.value());
@@ -111,7 +111,7 @@ int main(int argc, char** argv) {
   }
 
 //  retrieve the factor graph from the manager
-  auto point_cloud_proc = manager.getByName<structure_refinement::PointCloudProc>("point_cloud_proc");
+  auto point_cloud_proc = manager.getByName<mad_ba::PointCloudProc>("point_cloud_proc");
   if (!point_cloud_proc) {
     std::cerr << std::string(environ[0]) +
                    "|ERROR, cannot find point_cloud_proc, maybe wrong configuration path!"

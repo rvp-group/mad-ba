@@ -1,7 +1,7 @@
 #include "point_cloud_proc.h"
 #include <filesystem>
 
-namespace structure_refinement {
+namespace mad_ba {
   using namespace srrg2_core;
   using namespace srrg2_core_ros;
   namespace fs = std::filesystem;
@@ -78,7 +78,7 @@ namespace structure_refinement {
       // Create folders   
       int cnt = 0;
       while (true) {
-        std::string path = ros::package::getPath("structure_refinement") + "/output/" + outputFolder_ + "_" + std::to_string(cnt);;           
+        std::string path = ros::package::getPath("mad_ba") + "/output/" + outputFolder_ + "_" + std::to_string(cnt);;           
         if (!fs::is_directory(path) || !fs::exists(path)) {  // Check if src folder exists
           fs::create_directory(path);                        // create src folder
           fs::create_directory(path + "/pcd");
@@ -239,7 +239,7 @@ namespace structure_refinement {
   }
 
   void PointCloudProc::savePosesToFile() {
-    static std::string path = ros::package::getPath("structure_refinement") + "/output/" + outputFolder_ + "/tum/";
+    static std::string path = ros::package::getPath("mad_ba") + "/output/" + outputFolder_ + "/tum/";
     static int cnt = 0;
     std::string filename;
     if (useRawSurfelOptimization_) {
@@ -1398,7 +1398,7 @@ void PointCloudProc::rawOptimizeSurfelsv2(std::vector<Surfelv2>& surfelsv2){ //}
 
     surfelPointCloudPub_.publish(rosCloud);
 
-    static std::string path = ros::package::getPath("structure_refinement") + "/output/" + outputFolder_;
+    static std::string path = ros::package::getPath("mad_ba") + "/output/" + outputFolder_;
     static int cnt = 0;
     // pcl::io::savePLYFile(path + "ply/surfelCloud_" + std::to_string(cnt) + ".ply", psCloud);
     if (cnt == 0)
@@ -1492,7 +1492,7 @@ void PointCloudProc::rawOptimizeSurfelsv2(std::vector<Surfelv2>& surfelsv2){ //}
 
     // Save scans to file and bag
     rosbag::Bag bag;
-    std::string path = ros::package::getPath("structure_refinement") + "/output/" + outputFolder_;
+    std::string path = ros::package::getPath("mad_ba") + "/output/" + outputFolder_;
     bag.open(path + "scans/bag/test.bag", rosbag::bagmode::Write);
     int scanCnt = 0;
     for (auto & psCloud: psCloudsVec){
@@ -1510,4 +1510,4 @@ void PointCloudProc::rawOptimizeSurfelsv2(std::vector<Surfelv2>& surfelsv2){ //}
       scanCnt++;
     }
   }
-}  // namespace structure_refinement
+}  // namespace mad_ba

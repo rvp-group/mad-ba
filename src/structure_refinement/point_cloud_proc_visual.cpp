@@ -1,6 +1,6 @@
 #include "point_cloud_proc.h"
 
-namespace structure_refinement {
+namespace mad_ba {
 using namespace srrg2_core;
 using namespace srrg2_core_ros;
 using LidarProjectorType = PointIntensity3fProjectorOS1_64;
@@ -244,4 +244,4 @@ void PointCloudProc::visualizeSurfel(TreeNodeType* surfel, int markerColor) {
   visual_tools_->trigger();
 }
 
-}  // namespace structure_refinement
+}  // namespace mad_ba

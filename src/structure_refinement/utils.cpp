@@ -3,7 +3,7 @@
 #include <Eigen/Core>
 #include <Eigen/Dense>
 
-namespace structure_refinement {
+namespace mad_ba {
 
 Eigen::Matrix3f matrixBetween2Vectors(Eigen::Vector3f a, Eigen::Vector3f b) {
   a = a / a.norm();

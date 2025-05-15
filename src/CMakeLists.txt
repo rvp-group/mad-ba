@@ -1,2 +1,2 @@
-add_subdirectory(structure_refinement)
+add_subdirectory(mad_ba)
 add_subdirectory(types_krzystof)

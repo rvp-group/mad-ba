@@ -16,7 +16,7 @@ target_link_libraries(app_point_cloud_proc
     srrg2_system_utils_library
     srrg2_viewer_library 
     srrg2_configurable_shell_library
-    structure_refinement_library
+    mad_ba_library
     ${OpenCV_LIBS}
     ${QGLViewer_LIBRARIES}
     ${GLUT_LIBRARIES}
@@ -38,7 +38,7 @@ target_link_libraries(main_app
     srrg2_system_utils_library
     srrg2_viewer_library 
     srrg2_configurable_shell_library
-    structure_refinement_library
+    mad_ba_library
     librviz_visual_tools.so
     ${OpenCV_LIBS}
     ${QGLViewer_LIBRARIES}
@@ -61,7 +61,7 @@ target_link_libraries(convert_gt_map
     srrg2_system_utils_library
     srrg2_viewer_library 
     srrg2_configurable_shell_library
-    structure_refinement_library
+    mad_ba_library
     librviz_visual_tools.so
     ${GLUT_LIBRARIES}
     ${SRRG_QT_LIBRARIES}

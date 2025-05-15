@@ -9,7 +9,7 @@
 
 #include "kdtree.cuh"
 
-namespace structure_refinement {
+namespace mad_ba {
 using ContainerType = std::vector<Eigen::Vector3f>;
 using TreeNodeType = TreeNode3D<ContainerType>;
 using TreeNodeTypePtr = TreeNodeType *;
@@ -88,4 +88,4 @@ class Surfelv2 {
   Eigen::Vector3f normalEst_;
 };
 
-}  // namespace structure_refinement
+}  // namespace mad_ba

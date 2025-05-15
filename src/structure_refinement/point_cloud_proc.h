@@ -66,7 +66,7 @@
 #include <Eigen/LU>
 
 
-namespace structure_refinement {
+namespace mad_ba {
   using namespace srrg2_core;
     using ContainerType = std::vector<Eigen::Vector3f>;
       using TreeNodeType = TreeNode3D<ContainerType>;
@@ -205,4 +205,4 @@ namespace structure_refinement {
 
   using PointCloudProcPtr = std::shared_ptr<PointCloudProc>;
 
-} // namespace structure_refinement
+} // namespace mad_ba
