@@ -3,8 +3,19 @@
     <h3>3D LiDAR Bundle Adjustment &mdash; from Uncertainty Modelling to Structure Optimization</h3>
 </div>
 
-[![MAD-BA](http://img.youtube.com/vi/Uz1ST_lP8r4/0.jpg)](http://www.youtube.com/watch?v=Uz1ST_lP8r4 "MAD-BA: 3D LiDAR Bundle Adjustment")
-<iframe width="560" height="315" src="https://www.youtube.com/embed/Uz1ST_lP8r4" frameborder="0" allowfullscreen></iframe>
+
+<div align="center">
+  <!-- Video Thumbnail -->
+  <a href="https://www.youtube.com/watch?v=Uz1ST_lP8r4" target="_blank" style="display: inline-block;">
+    <img src="https://img.youtube.com/vi/Uz1ST_lP8r4/0.jpg" style="width: 100%; display: block;">
+  </a>
+
+  <!-- Play Button -->
+  <a href="https://www.youtube.com/watch?v=Uz1ST_lP8r4" target="_blank" style="display: inline-block;">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/b/b8/YouTube_play_button_icon_%282013%E2%80%932017%29.svg" 
+         style="width: 50px; height: auto; margin-left: 5px;">
+  </a>
+</div>
 
 
 ### Create Docker Image and Container
