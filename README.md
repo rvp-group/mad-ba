@@ -71,9 +71,9 @@ roscd mad_ba && rosrun mad_ba main_app -c config/VBR/spagna.config # Spagna sequ
 To modify parameters edit `.config` file for given sequence, located in `/catkin_ws/src/mad_ba/config` in Docker container:
 
 ```json
-"filename":           //path to .bag file
-"topics":             //topics for point cloud and odometry messages
-"clouds_to_process":  //number of point clouds in .bag file
-"decimate_real_data": //decimation - increase for longer sequences
-"iter_num":           //number of BA iterations
+"filename":           # path to .bag file
+"topics":             # topics for point cloud and odometry messages
+"clouds_to_process":  # number of point clouds in .bag file
+"decimate_real_data": # decimation - increase for longer sequences
+"iter_num":           # number of BA iterations
 ```
