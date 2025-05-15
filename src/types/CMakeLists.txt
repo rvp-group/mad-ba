@@ -9,7 +9,6 @@ add_library(srrg2_solver_types_library SHARED
   instances.cpp
 )
 
-
 target_link_libraries(srrg2_solver_types_library
   srrg2_solver_types3d_library
   srrg2_solver_types_common_library
