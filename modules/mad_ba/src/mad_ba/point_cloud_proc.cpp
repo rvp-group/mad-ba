@@ -141,7 +141,7 @@ namespace mad_ba {
       }
 
       // Publish and save to file
-      publishSavePointSurfv2(dataAssociation.getSurfels(), "_beforeOptim");
+      // publishSavePointSurfv2(dataAssociation.getSurfels(), "_beforeOptim");
 
       if (useRawSurfelOptimization_){
         for (int j=0; j < rawIterNum_; j++)
@@ -163,7 +163,7 @@ namespace mad_ba {
       // visualizeCorrespondingSurfelsV2WithPoses(dataAssociation.getSurfels());
 
       // if last iteraton publish and save to file
-      publishSavePointSurfv2(dataAssociation.getSurfels(), "_afterOptim");
+      publishSavePointSurfv2(dataAssociation.getSurfels(), "");
       if (i == iterNum_ - 1) {
         savePosesToFile();
         if (saveSurfelsScans_)
