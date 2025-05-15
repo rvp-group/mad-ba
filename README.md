@@ -17,7 +17,7 @@
   </a>
 </div>
 
-### Build and Run
+## Build and Run
 #### Create Docker Image and Container
 - Build image and create container: ```./build_and_run.sh```
 
