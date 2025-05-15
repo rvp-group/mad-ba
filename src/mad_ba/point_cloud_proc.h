@@ -104,7 +104,6 @@ namespace mad_ba {
     void visualizeSurfelPoses();
     void visualizeCorrespondingSurfelsWithPoses();
     void visualizeCorrespondingSurfelsV2WithPoses(std::vector<Surfelv2> &);
-    void filterSurfels();
     void visializeSurfelsv2(std::vector<Surfelv2> &surfelsv2);
     void publishSavePointSurfv2(std::vector<Surfelv2> &surfelsv2, std::string);
 

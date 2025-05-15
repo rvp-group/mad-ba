@@ -83,7 +83,6 @@ namespace mad_ba {
           fs::create_directory(path);                        // create src folder
           fs::create_directory(path + "/pcd");
           fs::create_directory(path + "/tum");
-          fs::create_directory(path + "/scans");
           outputFolder_ += "_" + std::to_string(cnt);
 
           std::ofstream file;
@@ -182,59 +181,27 @@ namespace mad_ba {
   }
 
   void PointCloudProc::processOdomAndScans(srrg2_core::BaseSensorMessagePtr msg) {
-    if (useSynthethicData_) {
-      // Simulate pose, cloud, pose, cloud messages
-      static bool msgType = 0;
-      msgType ^= 1;
-      if (msgType) {
-        static int odomMsgCnt = 0;
-        std::cout << "Synthetic odometry msg no. " << odomMsgCnt++ << std::endl;
-        nav_msgs::OdometryPtr odomMsgSynthPtr(new nav_msgs::Odometry());
-        generateSyntheticOdometry(*odomMsgSynthPtr);
-        // Pointless but convert it to srrg odom, so that it can be processed the same way and converted back
-        OdometryMessagePtr odomSrrg = std::dynamic_pointer_cast<OdometryMessage>(Converter::convert(odomMsgSynthPtr));
-        handleOdometryMessage(odomSrrg);
-
-      } else {
-        static int cloudMsgCnt = 0;
-        std::cout << "Synthetic point cloud msg no. " << cloudMsgCnt++ << std::endl;
-        sensor_msgs::PointCloud2Ptr cloudMsgSynthPtr(new sensor_msgs::PointCloud2());
-        generateSyntheticPointCloud(*cloudMsgSynthPtr);
-        PointCloud2MessagePtr cloudSrrg = std::dynamic_pointer_cast<PointCloud2Message>(Converter::convert(cloudMsgSynthPtr));
-        addNoiseToLastPose();
-        handleCloudMessage(cloudSrrg);
+    // Let's assume that for each point cloud in a .bag file there is one odometry pose
+    // Try to convert the message to srrg2 point cloud
+    if (PointCloud2MessagePtr cloud = std::dynamic_pointer_cast<PointCloud2Message>(msg)) {
+      static int cloudMsgCnt = 0;
+      if (cloudMsgCnt++ % decimateRealData_ == 0) {
+        std::cout << std::setprecision(12) << "Point cloud message no." << cloudMsgCnt << " Ts: " << cloud->timestamp.value() << std::endl;
+        handleCloudMessage(cloud);
       }
-    } else {
-      // Let's assume that for each point cloud in a .bag file there is one odometry pose
-      // Try to convert the message to srrg2 point cloud
-      if (PointCloud2MessagePtr cloud = std::dynamic_pointer_cast<PointCloud2Message>(msg)) {
-        static int cloudMsgCnt = 0;
-        if (cloudMsgCnt++ % decimateRealData_ == 0) {
-          std::cout << std::setprecision(12) << "Point cloud message no." << cloudMsgCnt << " Ts: " << cloud->timestamp.value() << std::endl;
-          handleCloudMessage(cloud);
-        }
+    }
+    // Try to convert the message to srrg2 odometry
+    else if (OdometryMessagePtr odom = std::dynamic_pointer_cast<OdometryMessage>(msg)) {
+      static int odomMsgCnt = 0;
+      if (odomMsgCnt++ % decimateRealData_ == 0) {
+        std::cout << std::setprecision(12) << "Odometry message no." << odomMsgCnt << " Ts: " << odom->timestamp.value() << std::endl;
+        handleOdometryMessage(odom);
       }
-      // Try to convert the message to srrg2 odometry
-      else if (OdometryMessagePtr odom = std::dynamic_pointer_cast<OdometryMessage>(msg)) {
-        static int odomMsgCnt = 0;
-        if (odomMsgCnt++ % decimateRealData_ == 0) {
-          std::cout << std::setprecision(12) << "Odometry message no." << odomMsgCnt << " Ts: " << odom->timestamp.value() << std::endl;
-          handleOdometryMessage(odom);
-          addNoiseToLastPose();
-        }
-      }
-      // Try to convert the message to tf message
-      else if (TransformEventsMessagePtr tfMsg = std::dynamic_pointer_cast<TransformEventsMessage>(msg)) {
-        static int tfMsgCnt = 0;
-        std::cout << std::setprecision(12) << "Transform message no." << tfMsgCnt++ << " Ts: " << tfMsg->timestamp.value() << std::endl;
-        // Disabled - now the TF transform is published in handleOdometryMessage() which makes it simpler to use synthethic data
-        // handleTFMessage(tfMsg);
-      }
-      // Other messages types
-      else {
-        std::cerr << "PointCloudProc::putMessage | no handler for the received message type " << std::endl;
-        // return false;
-      }
+    }
+    // Other messages types
+    else {
+      std::cerr << "PointCloudProc::putMessage | no handler for the received message type " << std::endl;
+      // return false;
     }
   }
 
@@ -260,25 +227,6 @@ namespace mad_ba {
            << quat.x() << " " << quat.y() << " " << quat.z() << " " << quat.w() << std::endl;
     }
     file.close();
-  }
-
-  void PointCloudProc::filterSurfels()
-  {
-    std::sort(surfels_.begin(), surfels_.end(), [](const std::shared_ptr<Surfel>& a, const std::shared_ptr<Surfel>& b) {
-      return a->odomPoses_.size() > b->odomPoses_.size();
-    });
-
-    // Remove all surfels except 5
-    int vecSize = surfels_.size();
-    for (int i = vecSize - 1; i > 400; i--) {
-      surfels_.pop_back();
-    }
-    std::cout << "Surfels size "  << surfels_.size() << std::endl;
-
-    // for (auto surf: surfels_)
-    // {
-      // std::cout << "Odom poses:  "  << surf->odomPoses_.size() << std::endl;
-    // }
   }
 
  
@@ -1400,12 +1348,7 @@ void PointCloudProc::rawOptimizeSurfelsv2(std::vector<Surfelv2>& surfelsv2){ //}
 
     static std::string path = ros::package::getPath("mad_ba") + "/output/" + outputFolder_;
     static int cnt = 0;
-    // pcl::io::savePLYFile(path + "ply/surfelCloud_" + std::to_string(cnt) + ".ply", psCloud);
-    if (cnt == 0)
-        pcl::io::savePCDFile(path + "/pcd/surfelCloud_" + std::to_string(cnt) + pathSuffix + ".pcd", psCloud);
-    else
-        pcl::io::savePCDFile(path + "/pcd/surfelCloud_" + "last" + pathSuffix + ".pcd", psCloud);
-
+    pcl::io::savePCDFile(path + "/pcd/surfelCloud_" + std::to_string(cnt) + pathSuffix + ".pcd", psCloud);
     cnt++;
   }
 
