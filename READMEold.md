@@ -1,16 +1,12 @@
-## Create Docker Image and Container
-- Build image: ```./build_image.sh```
-- Create ontainer: ```./run_container.sh```
+# Requirements
+- Docker
 
-## Build MAD-BA
-- Start and enter container: ```docker start mad_ba && docker exec -it mad_ba bash```
-- Build ROS packages: ```cd /catkin_ws && catkin build -DCMAKE_BUILD_TYPE=Release```
+# Install
 
-## Prepare data
-- 
-
-## Run MAD-BA
-- Run mad-ba: 
+# Run
+### Create Docker Image and Container
+- build image: ```./build_image.sh```
+- adjust shared path and start container: ```./run_container.sh```
 ### Clone repositories (inside container)
 ```bash
 # SRRG
