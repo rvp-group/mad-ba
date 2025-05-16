@@ -50,7 +50,7 @@ void DataAssociation::prepareDataCPU(std::vector<std::unique_ptr<TreeNodeType>> 
   for (int i = 0; i < kdTrees.size() - 1; i++) {
     // Copy the container for surfelMatches to GPU (output)
     std::vector<SurfelMatches> kdTreeMatches(kdTreeLeafes.at(i).size());
-    if (i % 200 == 0)
+    if (i % 100 == 0)
       std::cout << "Data association - processing scan no. " << i << std::endl;
     for (int j = i + 1; j < kdTrees.size(); j++) {
       {

@@ -186,7 +186,7 @@ namespace mad_ba {
     if (PointCloud2MessagePtr cloud = std::dynamic_pointer_cast<PointCloud2Message>(msg)) {
       static int cloudMsgCnt = 0;
       if (cloudMsgCnt++ % decimateRealData_ == 0) {
-        std::cout << std::setprecision(12) << "Point cloud message no." << cloudMsgCnt << " Ts: " << cloud->timestamp.value() << std::endl;
+        std::cout << std::setprecision(12) << "Point cloud message no." << cloudMsgCnt-1 << " Ts: " << cloud->timestamp.value() << std::endl;
         handleCloudMessage(cloud);
       }
     }
@@ -194,7 +194,7 @@ namespace mad_ba {
     else if (OdometryMessagePtr odom = std::dynamic_pointer_cast<OdometryMessage>(msg)) {
       static int odomMsgCnt = 0;
       if (odomMsgCnt++ % decimateRealData_ == 0) {
-        std::cout << std::setprecision(12) << "Odometry message no." << odomMsgCnt << " Ts: " << odom->timestamp.value() << std::endl;
+        std::cout << std::setprecision(12) << "Odometry message    no." << odomMsgCnt-1 << " Ts: " << odom->timestamp.value() << std::endl;
         handleOdometryMessage(odom);
       }
     }
@@ -1068,7 +1068,7 @@ void PointCloudProc::rawOptimizeSurfelsv2(std::vector<Surfelv2>& surfelsv2){ //}
 
     srrg2_core::Chrono ch1("optimizeFactorGraph: ", &_timings, false);
     static int cnt = 0;
-    std::cout << "Iteration #" << cnt++ << std::endl;
+    std::cout << "Optimization iteration #" << cnt++ << std::endl;
     // Instanciate a solver
     srrg2_solver::Solver solver;
     // Remove default termination criteria
@@ -1091,13 +1091,13 @@ void PointCloudProc::rawOptimizeSurfelsv2(std::vector<Surfelv2>& surfelsv2){ //}
     // solver.saveGraph("after.graph");
     // Visualize statistics and exit
     const auto& stats = solver.iterationStats();
-    std::cout << "performed [" << FG_YELLOW(stats.size()) << "] iterations" << std::endl;
-    std::cout << "stats\n\n";
+    // std::cout << "performed [" << FG_YELLOW(stats.size()) << "] iterations" << std::endl;
+    // std::cout << "stats\n\n";
     std::cout << stats << std::endl;
 
     // std::cout << "Diagonal " << solver.getDiagonal() << std::endl;
     // std::cout << "Block (0,0) " <<  
-    solver.H().blockAt(0,0)->print() ;
+    // solver.H().blockAt(0,0)->print() ;
     // << std::endl;
 
   }
