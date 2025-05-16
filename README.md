@@ -1,6 +1,7 @@
 <div align="center">
     <h1>MAD-BA</h1>
     <h3>3D LiDAR Bundle Adjustment &mdash; from Uncertainty Modelling to Structure Optimization</h3>
+    <h4> Accepted RA-L 2025 </h4>
 </div>
 
 
