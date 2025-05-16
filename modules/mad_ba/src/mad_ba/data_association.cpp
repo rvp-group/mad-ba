@@ -36,7 +36,6 @@ void DataAssociation::associateDataKernelCPU(int numOfLeafs, int kdTreeAIdx, int
 }
 
 void DataAssociation::prepareDataCPU(std::vector<std::unique_ptr<TreeNodeType>> &kdTrees, std::vector<std::vector<TreeNodeTypePtr>> &kdTreeLeafes) {
-  std::cout << "PreparaceDataCPU" << std::endl;
 
   srrg2_core::Chrono::ChronoMap _timings;
   srrg2_core::Chrono chGP2("ProcessingMatches", &_timings, false);
@@ -52,7 +51,7 @@ void DataAssociation::prepareDataCPU(std::vector<std::unique_ptr<TreeNodeType>> 
     // Copy the container for surfelMatches to GPU (output)
     std::vector<SurfelMatches> kdTreeMatches(kdTreeLeafes.at(i).size());
     if (i % 200 == 0)
-      std::cout << "KdTree matching " << i << std::endl;
+      std::cout << "Data association - processing scan no. " << i << std::endl;
     for (int j = i + 1; j < kdTrees.size(); j++) {
       {
         srrg2_core::Chrono chGP2("Associating data", &_timings, false);
@@ -72,9 +71,9 @@ void DataAssociation::prepareDataCPU(std::vector<std::unique_ptr<TreeNodeType>> 
       }
     }
   }
-  std::cout << "Num of surfels " << surfels_.size() << " Max surfels:  " << maxSurfelNum << std::endl;
-  std::cout << "Ended CPU computations " << std::endl;
-  srrg2_core::Chrono::printReport(_timings);
+  // std::cout << "Num of surfels " << surfels_.size() << " Max surfels:  " << maxSurfelNum << std::endl;
+  // std::cout << "Ended CPU computations " << std::endl;
+  // srrg2_core::Chrono::printReport(_timings);
 }
 
 // Potentially this can be parallelized, as matches contain only pairs of surfels

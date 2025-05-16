@@ -147,10 +147,10 @@ namespace mad_ba {
         for (int j=0; j < rawIterNum_; j++)
         {
           savePosesToFile();
-          std::cout << "Raw optimization of surfels" << std::endl;
+          // std::cout << "Raw optimization of surfels" << std::endl;
           // This should be called only once as it gives the same results all the time
           rawOptimizeSurfelsv2(dataAssociation.getSurfels());
-          std::cout << "Graph optimization of poses" << std::endl;
+          // std::cout << "Graph optimization of poses" << std::endl;
           handleFactorGraph(dataAssociation.getSurfels());
         }
       }
@@ -176,7 +176,7 @@ namespace mad_ba {
     }
 
     ros::Duration(1.0).sleep();
-    srrg2_core::Chrono::printReport(_timings);
+    // srrg2_core::Chrono::printReport(_timings);
     exit(0);
   }
 
@@ -1067,7 +1067,8 @@ void PointCloudProc::rawOptimizeSurfelsv2(std::vector<Surfelv2>& surfelsv2){ //}
  void PointCloudProc::optimizeFactorGraph(srrg2_solver::FactorGraphPtr &graph){
 
     srrg2_core::Chrono ch1("optimizeFactorGraph: ", &_timings, false);
-
+    static int cnt = 0;
+    std::cout << "Iteration #" << cnt++ << std::endl;
     // Instanciate a solver
     srrg2_solver::Solver solver;
     // Remove default termination criteria
