@@ -1,7 +1,12 @@
 <div align="center">
     <h1>MAD-BA</h1>
     <h3>3D LiDAR Bundle Adjustment &mdash; from Uncertainty Modelling to Structure Optimization</h3>
-    <h4> Accepted RA-L 2025 </h4>
+    <h4>IEEE Robotics and Automation Letters (RA-L), 2025</h4>
+
+    <p>
+        <a href="https://arxiv.org/abs/2501.03972">arXiv</a> |
+        <a href="https://ieeexplore.ieee.org/document/11015251/">IEEE Xplore</a> |
+    </p>
 </div>
 
 
